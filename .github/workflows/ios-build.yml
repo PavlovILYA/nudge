@@ -1,0 +1,92 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: xcode-27
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS Simulator
+            destination: generic/platform=iOS Simulator
+            products: Release-iphonesimulator
+            artifact: Nudge-0.0.1-iOS-Simulator
+          - name: iOS Device (Unsigned)
+            destination: generic/platform=iOS
+            products: Release-iphoneos
+            artifact: Nudge-0.0.1-iOS-Device-Unsigned
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Select latest installed stable Xcode 27
+        shell: bash
+        run: |
+          set -euo pipefail
+          developer_dir=$(python3 - <<'PY'
+          import pathlib
+          import re
+
+          candidates = []
+          for app in pathlib.Path("/Applications").glob("Xcode*.app"):
+              match = re.fullmatch(r"Xcode_(27(?:\.\d+)*)\.app", app.name)
+              if match:
+                  candidates.append((tuple(map(int, match[1].split("."))), app))
+          if not candidates:
+              raise SystemExit("No stable Xcode 27 installation found")
+          print(max(candidates)[1] / "Contents/Developer")
+          PY
+          )
+          echo "DEVELOPER_DIR=$developer_dir" >> "$GITHUB_ENV"
+
+      - name: Show toolchain and SDK versions
+        run: |
+          xcodebuild -version
+          xcrun swift --version
+          xcodebuild -showsdks
+
+      - name: Build Release application
+        env:
+          DESTINATION: ${{ matrix.destination }}
+        run: |
+          xcodebuild \
+            -project Nudge.xcodeproj \
+            -scheme Nudge \
+            -configuration Release \
+            -destination "$DESTINATION" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package application bundle
+        env:
+          PRODUCTS: ${{ matrix.products }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: |
+          test -d "build/Build/Products/$PRODUCTS/Nudge.app"
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent \
+            "build/Build/Products/$PRODUCTS/Nudge.app" \
+            "artifacts/$ARTIFACT.zip"
+
+      - name: Upload application ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/${{ matrix.artifact }}.zip
+          if-no-files-found: error
+          retention-days: 14
