@@ -22,11 +22,11 @@ jobs:
           - name: iOS Simulator
             destination: generic/platform=iOS Simulator
             products: Release-iphonesimulator
-            artifact: Nudge-0.0.1-iOS-Simulator
+            artifact: iOS-Simulator
           - name: iOS Device (Unsigned)
             destination: generic/platform=iOS
             products: Release-iphoneos
-            artifact: Nudge-0.0.1-iOS-Device-Unsigned
+            artifact: iOS-Device-Unsigned
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -72,10 +72,34 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Verify built settings and derive artifact version
+        id: metadata
+        env:
+          PRODUCTS: ${{ matrix.products }}
+          SUFFIX: ${{ matrix.artifact }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import pathlib
+          import plistlib
+
+          app = pathlib.Path("build/Build/Products") / os.environ["PRODUCTS"] / "Nudge.app"
+          with (app / "Info.plist").open("rb") as source:
+              info = plistlib.load(source)
+          assert info["CFBundleIdentifier"] == "com.pavlovilya.nudge"
+          assert info["CFBundleShortVersionString"] == "0.1.0"
+          assert info["CFBundleVersion"] == "2"
+          assert info["MinimumOSVersion"] == "26.0"
+          assert info["NSAlarmKitUsageDescription"].strip()
+          artifact = f"Nudge-{info['CFBundleShortVersionString']}-{os.environ['SUFFIX']}"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"artifact={artifact}\n")
+          PYTHON
+
       - name: Package application bundle
         env:
           PRODUCTS: ${{ matrix.products }}
-          ARTIFACT: ${{ matrix.artifact }}
+          ARTIFACT: ${{ steps.metadata.outputs.artifact }}
         run: |
           test -d "build/Build/Products/$PRODUCTS/Nudge.app"
           mkdir -p artifacts
@@ -86,7 +110,57 @@ jobs:
       - name: Upload application ZIP
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact }}
-          path: artifacts/${{ matrix.artifact }}.zip
+          name: ${{ steps.metadata.outputs.artifact }}
+          path: artifacts/${{ steps.metadata.outputs.artifact }}.zip
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Select available iPhone simulator
+        if: matrix.artifact == 'iOS-Simulator'
+        id: simulator
+        run: |
+          xcrun simctl list devices available --json > /tmp/simulators.json
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import re
+
+          with open("/tmp/simulators.json") as source:
+              devices = json.load(source)["devices"]
+          candidates = []
+          for runtime, entries in devices.items():
+              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not match or int(match[1]) < 26:
+                  continue
+              for device in entries:
+                  if device["isAvailable"] and device["name"].startswith("iPhone"):
+                      candidates.append((int(match[1]), int(match[2]), device["udid"]))
+          if not candidates:
+              raise SystemExit("No compatible iPhone simulator available for tests")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"id={max(candidates)[2]}\n")
+          PYTHON
+
+      - name: Run reminder unit tests
+        if: matrix.artifact == 'iOS-Simulator'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcodebuild \
+            -project Nudge.xcodeproj \
+            -scheme Nudge \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath build-tests \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Upload test results
+        if: always() && matrix.artifact == 'iOS-Simulator'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nudge-TestResults
+          path: TestResults.xcresult
+          if-no-files-found: warn
           retention-days: 14
