@@ -14,7 +14,7 @@ Nudge **0.1.0 (2)** is a minimal native iPhone reminder prototype. Create a task
 
 Swift 6, SwiftUI, SwiftData, and AlarmKit; no third-party dependencies. iPhone only, minimum **iOS 26.0**, bundle ID **`com.pavlovilya.nudge`**. Target acceptance device: **iPhone 13 / iOS 27.2.1**. CI selects the latest installed stable Xcode 27 on `xcode-27`. The Intel development Mac on macOS Sequoia 15.8.1 does not need Xcode 27; do not upgrade it to build this project.
 
-`Nudge.xcodeproj` and the shared `Nudge` scheme are committed. Open with `open Nudge.xcodeproj`. Xcode generates Info.plist from build settings: `MARKETING_VERSION=0.1.0`, `CURRENT_PROJECT_VERSION=2`. Unlike JVM targets, the simulator and device are separate native binaries.
+`Nudge.xcodeproj` and the shared `Nudge` scheme are committed. Open with `open Nudge.xcodeproj`. Xcode merges the alarm usage description in `Nudge/Info.plist` with generated build settings: `MARKETING_VERSION=0.1.0`, `CURRENT_PROJECT_VERSION=2`. Unlike JVM targets, the simulator and device are separate native binaries.
 
 SwiftData owns the on-device persistent store. The reminder UUID is also its stable AlarmKit UUID, saved before calling the system. The app uses `Alarm.Schedule.fixed(Date)` directly: Foundation's date picker interprets local calendar/time-zone selection; the stored value is an absolute instant. Travelling changes the displayed local time, not the scheduled instant. No calendar-component conversion is needed. No alarm is scheduled on launch or for a completed task.
 

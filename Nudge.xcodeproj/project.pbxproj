@@ -29,6 +29,7 @@
 
         000000000000000000000200 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderTests.swift; sourceTree = "<group>"; };
         000000000000000000000201 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = NudgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000120 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,7 +39,7 @@
 
 /* Begin PBXGroup section */
 		000000000000000000000009 = {isa = PBXGroup; children = (00000000000000000000000A, 000000000000000000000203, 00000000000000000000000B); sourceTree = "<group>"; };
-		00000000000000000000000A = {isa = PBXGroup; children = (000000000000000000000004, 000000000000000000000005, 000000000000000000000100, 000000000000000000000101, 000000000000000000000102, 000000000000000000000103, 000000000000000000000006); path = Nudge; sourceTree = "<group>"; };
+		00000000000000000000000A = {isa = PBXGroup; children = (000000000000000000000004, 000000000000000000000005, 000000000000000000000100, 000000000000000000000101, 000000000000000000000102, 000000000000000000000103, 000000000000000000000120, 000000000000000000000006); path = Nudge; sourceTree = "<group>"; };
 		00000000000000000000000B = {isa = PBXGroup; children = (000000000000000000000007, 000000000000000000000201); name = Products; sourceTree = "<group>"; };
 
         000000000000000000000203 = {isa = PBXGroup; children = (000000000000000000000200); path = NudgeTests; sourceTree = "<group>"; };
@@ -142,7 +143,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Nudge;
-				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Nudge schedules system alarms for the reminders you create.";
+				INFOPLIST_FILE = Nudge/Info.plist;
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -165,7 +166,7 @@
 				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Nudge;
-				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Nudge schedules system alarms for the reminders you create.";
+				INFOPLIST_FILE = Nudge/Info.plist;
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

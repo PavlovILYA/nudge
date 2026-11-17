@@ -27,3 +27,6 @@
 - Base: bootstrap PR #1 merged at 2026-11-17T22:02:24Z, origin/main 27c381d. Clean working tree; created feat/alarmkit-reminders from origin/main.
 - Apple docs and official SchedulingAnAlarmWithAlarmKit sample inspected. fixed(Date) is the one-time absolute schedule. Native stop works without custom intents; no countdown or widget required.
 - Local compatible Xcode is not assumed; simulator and SwiftData tests run on CI.
+
+- Independent review: no confirmed important issues. Database-save failure injection remains untested.
+- CI first run: device compilation passed with Xcode 27.2.0; built-plist assertion failed because arbitrary INFOPLIST_KEY_NSAlarmKitUsageDescription was omitted. Added explicit input plist for that key, retaining generated version metadata. Both artifacts remain gated by this runtime-critical assertion.
