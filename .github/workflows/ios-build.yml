@@ -159,6 +159,13 @@ jobs:
               output.write(f"id={max(candidates)[2]}\n")
           PYTHON
 
+      - name: Boot test simulator and wait for readiness
+        if: matrix.artifact == 'iOS-Simulator'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+
       - name: Run reminder unit tests
         if: matrix.artifact == 'iOS-Simulator'
         env:
@@ -171,8 +178,29 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath build-tests \
             -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             test
+
+      - name: Collect simulator launch diagnostics
+        if: failure() && matrix.artifact == 'iOS-Simulator'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          mkdir -p simulator-diagnostics
+          xcrun simctl list devices > simulator-diagnostics/devices.txt
+          xcrun simctl spawn "$SIMULATOR_ID" log show --last 15m --style compact \
+            --predicate 'process == "installd" OR process == "lsd" OR process == "SpringBoard"' \
+            > simulator-diagnostics/launch.log 2>&1 || true
+
+      - name: Upload simulator launch diagnostics
+        if: failure() && matrix.artifact == 'iOS-Simulator'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nudge-Simulator-Diagnostics
+          path: simulator-diagnostics
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload test results
         if: always() && matrix.artifact == 'iOS-Simulator'
