@@ -1,40 +1,68 @@
 # Nudge
 
-Nudge **0.1.0 (2)** is a minimal native iPhone reminder prototype. Create a task, persist it locally with SwiftData, and schedule a real one-time AlarmKit system alarm. **Stopping an alarm does not complete its task.** Only the explicit completion button in Nudge marks it done.
+Nudge **0.2.0 (3)** is a native iPhone app for persistent reminders with real AlarmKit system alarms and flexible snooze. **Stopping or snoozing an alarm never completes its task.** Completion is a separate action in the app.
 
 ## Use
 
-- Tap **+**, enter a non-empty title and future date/time, then **Save**. The default is five minutes ahead. The task is saved before requesting alarm permission or scheduling.
-- Allow AlarmKit access at the first system prompt. Nudge declares `NSAlarmKitUsageDescription`; no Critical Alerts entitlement is used. If denied, allow alarms for Nudge in Settings. Failed tasks remain saved and show an alarm warning. This prototype does not retry or reschedule automatically; recreate a reminder after enabling access.
-- The main list shows incomplete tasks, their local schedule date/time, and **Overdue** after that instant passes. Tap the circle beside a task to explicitly complete it and cancel its alarm. Enable **Show completed** to see completed tasks.
-- Swipe left and tap **Delete** to cancel an associated alarm and remove the task. Cancellation errors retain the record for retry. Completion retains the task; deletion removes it.
-- “Alarm registered at last check” reports the latest successful foreground system query or schedule result. It is not proof an alarm sounded. “No alarm registered” can mean it ended, was stopped, or was removed; none of those completes a task.
+- Tap **+**, enter a title and future date/time, then **Save**. Allow AlarmKit access when asked. A task stays saved even if permission or scheduling fails.
+- When an alarm fires, **Stop** silences it without completing the task. The custom secondary action opens Nudge directly at that task's **Choose Time** sheet. On newer iOS versions the system may label this action **Open**, despite the app supplying localized Choose Time text. Unlock the iPhone when requested.
+- Tap **5 / 10 / 15 / 30 minutes / 1 hour** to immediately reschedule. The selected interval highlights while saving. For another time, use the standard **DatePicker** and tap **Schedule alarm**. The sheet shows the task title and proposed next alarm. Cancel or swipe down before saving to leave the schedule unchanged; controls and dismissal are disabled while saving.
+- You can also tap **Choose Time** on any incomplete task in the list, including a reminder whose alarm has stopped or failed. Enable alarms for Nudge in Settings before retrying denied access.
+- The list retains the **original task date** and shows the **next alarm** separately after snoozing. Overdue describes the original task deadline, even when the next signal is in the future.
+- Tap the circle to explicitly complete a task and cancel its alarm. **Show completed** displays completed tasks. Swipe left → **Delete** cancels the alarm and removes the task. Cancellation errors retain the record so you can retry.
+- Registration status is a snapshot, not proof of delivery. An absent alarm may have fired, stopped or been removed; this never changes completion.
+
+New snooze controls and app-supplied alarm button text have English and Russian translations; other languages fall back to English. Native system control labels follow iOS localization.
 
 ## Platform and implementation
 
-Swift 6, SwiftUI, SwiftData, and AlarmKit; no third-party dependencies. iPhone only, minimum **iOS 26.0**, bundle ID **`com.pavlovilya.nudge`**. Target acceptance device: **iPhone 13 / iOS 27.2.1**. CI selects the latest installed stable Xcode 27 on `xcode-27`. The Intel development Mac on macOS Sequoia 15.8.1 does not need Xcode 27; do not upgrade it to build this project.
+Swift 6, SwiftUI, SwiftData, AlarmKit and App Intents; no dependencies. iPhone only, minimum **iOS 26.0**, bundle ID **`com.pavlovilya.nudge`**. Acceptance device: **iPhone 13 / iOS 27.2.1**. CI uses the latest installed stable Xcode 27 on `xcode-27`. The Intel development Mac with Command Line Tools does not need a modern local Xcode.
 
-`Nudge.xcodeproj` and the shared `Nudge` scheme are committed. Open with `open Nudge.xcodeproj`. Xcode merges the alarm usage description in `Nudge/Info.plist` with generated build settings: `MARKETING_VERSION=0.1.0`, `CURRENT_PROJECT_VERSION=2`. Unlike JVM targets, the simulator and device are separate native binaries.
+`Nudge.xcodeproj` includes a shared `Nudge` scheme. Build settings: `MARKETING_VERSION=0.2.0`, `CURRENT_PROJECT_VERSION=3`. Xcode merges `Nudge/Info.plist`, including `NSAlarmKitUsageDescription`, with generated settings. No Critical Alerts entitlement, notification fallback or Widget Extension is used.
 
-SwiftData owns the on-device persistent store. The reminder UUID is also its stable AlarmKit UUID, saved before calling the system. The app uses `Alarm.Schedule.fixed(Date)` directly: Foundation's date picker interprets local calendar/time-zone selection; the stored value is an absolute instant. Travelling changes the displayed local time, not the scheduled instant. No calendar-component conversion is needed. No alarm is scheduled on launch or for a completed task.
+The existing SwiftData model gains only optional `nextAlarmAt` and `pendingSnoozeAt`. `scheduledAt`, ID, alarm ID and completion remain intact. SwiftData infers a lightweight migration; an automated test writes a disk store with a frozen copy of the 0.1.0 model and opens it with 0.2.0, checking both incomplete and completed records. Storage-open errors remain visible; the app never deletes or silently replaces the user's database.
 
-AlarmKit code follows Apple's [documentation](https://developer.apple.com/documentation/alarmkit) and [official scheduling sample](https://developer.apple.com/documentation/alarmkit/scheduling-an-alarm-with-alarmkit). Only an alert presentation is configured, with native system stop behavior and the task title; no custom stop intent, countdown, Live Activity extension, or widget. App operations and SwiftData mutations stay on the main actor; system scheduling is awaited without blocking the UI thread.
+A `Date` is an absolute instant, unlike a local calendar time. DatePicker handles local calendar/time zone entry; fixed AlarmKit schedules receive that instant directly. Travel changes the display, not the intended instant. The original reminder ID is also its stable AlarmKit ID. SwiftData writes and UI routing run on `MainActor`; awaited system work leaves the UI thread available, like suspending a coroutine rather than blocking a Java thread.
+
+## Rescheduling and partial failure
+
+SwiftData and AlarmKit have no shared transaction:
+
+1. Validate the future date and incomplete task. Obtain permission **before** removing any existing registration. Recheck the task and time after authorization suspends.
+2. Read actual fixed schedules. If the same ID already has the requested date, reconcile the local record without another cancel/schedule.
+3. Persist the requested date in `pendingSnoozeAt` before touching AlarmKit. If this save fails, leave the old alarm intact.
+4. Cancel the old alarm by its stable ID. This removes a sounding alarm and its old schedule. A cancellation error is tolerated only when a successful system read confirms the ID is absent. Otherwise stop and show the error.
+5. Register one new `.fixed(Date)` alarm with the same ID; only then save `nextAlarmAt`, registration state and clear the pending marker.
+6. On foreground entry and AlarmKit updates, compare any pending date with the actual fixed system schedule. A match completes the local save. A mismatch/missing alarm shows an interrupted/failed snooze and offers manual retry through Choose Time. No automatic rescheduling or background polling occurs.
+
+Permission, scheduling and database errors are visible. A scheduling failure after cancellation can leave **no alarm**; the incomplete task and pending request remain saved for retry. If scheduling succeeded but the final local save failed, the pending marker allows reconciliation on relaunch. Repeated taps are guarded while any store operation is busy. Completion never follows from any of these operations.
+
+## Apple API and Interactive Snippets research
+
+The implementation uses `AlarmPresentation.Alert`, `AlarmButton`, secondary behavior `.custom`, `AlarmManager.AlarmConfiguration(secondaryIntent:)`, `AlarmManager.schedule/cancel`, `alarms`, `alarmUpdates`, authorization and `Alarm.Schedule.fixed`. The action is a `LiveActivityIntent` with a String UUID parameter. It requests `supportedModes = .foreground` and local device authentication, then sets one observable pending presentation request. The sheet consumes that request on cold or warm launch. The intent does not duplicate scheduling logic.
+
+The installed SDK deprecates `openAppWhenRun` at iOS 26 in favor of `supportedModes`; the modern property is used. The stop-button initializer is deprecated at 26.1 and its property is no longer used, so iOS 26.1+ gets the system-provided stop control; only iOS 26.0 uses the older initializer.
+
+[Apple's AlarmKit sample](https://developer.apple.com/documentation/alarmkit/scheduling-an-alarm-with-alarmkit) documents the custom action as opening the app. [WWDC25 AlarmKit](https://developer.apple.com/videos/play/wwdc2025/230/) demonstrates passing the alarm ID through a LiveActivityIntent. [Interactive Snippets](https://developer.apple.com/documentation/appintents/displaying-static-and-interactive-snippets) support compact follow-up controls in system hosts such as Siri, Spotlight and Shortcuts. **A supported AlarmKit → locked-screen interactive snippet host was not established.** Nudge therefore opens its own native sheet through the documented custom action; it makes no attempt to overlay arbitrary SwiftUI on the system alarm or bypass authentication. Exact button wording and the unlock transition require physical-device acceptance.
+
+See [design, implementation plan and research links](docs/flexible-snooze.md). CI exports the installed SDK declarations as evidence.
 
 ## CI and tests
 
-GitHub Actions **iOS Build** runs for pull requests to `main`, pushes to `main`, and manual dispatch. It preserves separate unsigned Release builds for `generic/platform=iOS Simulator` and `generic/platform=iOS`. Built Info.plist values are checked for version, build, minimum OS, bundle ID and non-empty alarm usage description. Artifact names derive their version from that generated plist. No signing credentials or secrets are required.
+[Pull request #3](https://github.com/PavlovILYA/nudge/pull/3) targets `main` and must remain unmerged until physical acceptance. [GitHub Actions](https://github.com/PavlovILYA/nudge/actions/workflows/ios-build.yml) preserves separate **Release** simulator and unsigned physical-device builds, plus simulator unit tests. Built plist checks require version **0.2.0**, build **3**, bundle ID **com.pavlovilya.nudge**, iOS 26 minimum and a nonempty AlarmKit permission description.
 
 Artifacts (14-day retention):
 
-| Artifact | Contents / use |
+| Artifact | Contents |
 | --- | --- |
-| `Nudge-0.1.0-iOS-Simulator` | ZIP of the simulator `Nudge.app`; cannot install on an iPhone |
-| `Nudge-0.1.0-iOS-Device-Unsigned` | ZIP of the device `Nudge.app`; requires packaging and signing below |
-| `Nudge-TestResults` | Simulator `.xcresult` test results, including failures when produced |
+| `Nudge-0.2.0-iOS-Simulator` | ZIP of simulator `Nudge.app` |
+| `Nudge-0.2.0-iOS-Device-Unsigned` | ZIP of device `Nudge.app`; manual signing required |
+| `Nudge-TestResults` | Simulator `.xcresult` test results |
+| `Apple-SDK-Reference` | Installed AlarmKit / AppIntents `.swiftinterface` declarations |
 
-The simulator job selects an available iPhone simulator on iOS 26 or later and runs the shared scheme's tests. A missing runtime fails the check explicitly. Tests cover validation, the exact overdue boundary, explicit completion, stable IDs/dates across disk-store reopening, persistence before scheduling, scheduling failures, cancellation failure/retry, and foreground refresh without rescheduling/completion. They substitute only system alarm closures and never request live AlarmKit permission. No pure date conversion helper exists because fixed schedules receive the stored Date unchanged.
+Tests cover all five interval calculations, future date validation, persistence, unchanged completion, no duplicate registrations, denied permission, cancellation/scheduling errors and retry, repeated/concurrent requests, deletion/completion, task changes during authorization, interrupted saves, uncertain scheduling outcomes, foreground reconciliation, intent UUID routing and legacy migration. They replace only system alarm closures and inject save errors; they never schedule real alarms or request live permissions.
 
-With compatible Xcode installed:
+With compatible Xcode:
 
 ```sh
 xcodebuild -project Nudge.xcodeproj -scheme Nudge \
@@ -42,51 +70,47 @@ xcodebuild -project Nudge.xcodeproj -scheme Nudge \
   -derivedDataPath build-tests CODE_SIGNING_ALLOWED=NO test
 ```
 
-CI compilation and these tests do **not** establish physical alarm delivery or permission/signing behavior.
+CI does not prove physical alarm delivery, lock-screen routing or signing behavior.
 
 ## Install on iPhone 13
 
-The following path was manually verified for **0.0.1**, installed and launched on iPhone 13 / iOS 27.2.1. AlarmKit functionality in **0.1.0 needs separate physical-device acceptance**.
+AlarmKit delivery in **0.1.0** was confirmed by the user on iPhone 13 / iOS 27.2.1. **0.2.0 physical-device acceptance has not been run.**
 
-1. Open the PR's successful **iOS Build** Actions run. Download `Nudge-0.1.0-iOS-Device-Unsigned` from **Artifacts** (GitHub sign-in may be required).
-2. Extract the GitHub artifact and its inner application ZIP to obtain `Nudge.app`.
-3. Package the unsigned device app as an IPA. In a temporary directory containing `Nudge.app`:
+1. Download `Nudge-0.2.0-iOS-Device-Unsigned` from the successful PR Actions run. Extract the GitHub artifact and its inner ZIP to obtain `Nudge.app`.
+2. In a temporary directory containing `Nudge.app`, package it:
 
    ```sh
    mkdir -p Payload
    cp -R Nudge.app Payload/
-   /usr/bin/zip -r Nudge-0.1.0.ipa Payload
+   /usr/bin/zip -r Nudge-0.2.0.ipa Payload
    ```
 
-4. Connect the iPhone to the Mac, trust the computer, and use **Sideloadly** to sign/install the IPA with your **free Apple ID**. Enter account credentials only into the signing tool; keep credentials and profiles outside this repository.
-5. Enable **Developer Mode** on the iPhone (Settings → Privacy & Security; restart if prompted). Trust the developer profile under Settings → General → VPN & Device Management when required, then launch Nudge.
+3. Connect/trust the iPhone and use **Sideloadly** with your free Apple ID to sign/install. Keep credentials/profiles outside this repository. Enable Developer Mode and trust the profile in Settings if required.
+4. For upgrade testing, install over 0.1.0 with the **same signing identity and effective bundle ID**. Do not uninstall: uninstalling removes local tasks. Signing tools can change application identifiers; record and preserve the actual identity.
 
-Free Apple ID signing lasts **seven days**; re-sign/reinstall when it expires. The unsigned artifact is not directly installable, and simply renaming a ZIP to IPA does not sign it. Preserve the same application identity when reinstalling; uninstalling removes local reminders. Do not rely on prototype alarms after signing expiry. Installation/signing is manual; CI does not deploy, release, tag, or merge.
+Free Apple ID signing lasts seven days; re-sign when needed. An unsigned app or a ZIP renamed IPA is not installable by itself. CI does not deploy, release, tag or merge.
 
-## Known limits and consistency
+## Physical acceptance — iPhone 13, iOS 27.2.1 — not yet run for 0.2.0
 
-- System alarms and SwiftData are separate stores with no shared transaction. A process kill after persisting but before scheduling can leave a task with no alarm. Its durable ID remains available; foreground checks can identify registration without creating duplicates. There is deliberately no automatic retry.
-- Nudge checks system registrations on foreground entry and listens for AlarmKit updates while the view is alive. It does not poll in the background or assume stop actions execute app code. A missing registration cannot reliably distinguish stopping, firing, or other removal. Task completion never depends on these observations.
-- If cancellation fails and the system cannot confirm absence, completion/deletion is refused so the reminder remains retryable. An already-missing alarm is tolerated. If a database save fails after a system operation, Nudge rolls back local changes and displays that the system action may already have occurred. Reopen/check and retry. Storage-open failure is visible; data is never silently replaced with an in-memory store.
-- Registration status is a last-check snapshot, including if a later read fails. It cannot guarantee future delivery, current authorization, or device behavior. Permission changes, process termination, reboot and signing expiry require device testing.
-- No editing, repeats, re-alarm-until-completed, custom sounds, snooze configuration, widgets, accounts, sync, calendar, Siri, voice, LLM, notifications fallback, or background execution policy.
+Record commit, app version/build, device/OS, signing identity, language, expected/actual result and pass/fail. Run in light and dark appearance; check large text and portrait iPhone 13 layout.
 
-## Physical-device acceptance — not yet run for 0.1.0
+1. **Upgrade preparation:** on 0.1.0 create at least one future task, one overdue incomplete task and one completed task. Record titles/dates. Install 0.2.0 over it without uninstalling; verify all records and completion values survived.
+2. Create a fresh reminder **two minutes ahead** and allow AlarmKit access. Verify registration and the original task date.
+3. **Lock the iPhone** and wait for the real AlarmKit alarm. Record the system title and actual stop/custom-action labels in Russian and English.
+4. Tap **Choose Time** (or the system's **Open** label). Verify Nudge opens directly to that task's sheet without searching the list.
+5. Record whether Face ID/passcode unlock is required. Repeat with authentication cancelled; no snooze should be saved without a time selection.
+6. Tap **5 minutes** once. Verify selected feedback, disabled controls while saving and sheet dismissal on success. Check the new alarm time is about five minutes from the tap.
+7. Verify the **original signal stopped** and only one future registration is reported. Check the original deadline remains visible separately.
+8. Verify the task **remains incomplete**. Do not tap its completion circle.
+9. Lock the phone and **wait for the repeat alarm**. Verify exactly one signal at the new time, with the same task title. Repeat quick selections for **10 / 15 / 30 / 60 minutes** as time permits; verify each chosen time persists after relaunch.
+10. Open Choose Time and use **DatePicker** to choose a specific future date/time. Save, reopen the app and verify persistence; wait for a near-future custom selection to confirm delivery. A past time must be rejected. Cancel a separate selection and verify its schedule does not change.
+11. On another alarm tap **Stop without snoozing**. Reopen Nudge: the task is still incomplete; no automatic repeat alarm is created.
+12. Schedule a snooze, **force-close Nudge**, lock the iPhone and verify system delivery. Reopen before/after firing: task and saved dates persist. Repeat custom-action routing with Nudge terminated and already open (including when the create sheet is open).
+13. Check **no duplicates**: tap rapidly, reschedule the same task several times, and verify no signal at superseded times. Complete/delete a snoozed task and verify no later signal. An old action for a completed/deleted task must show an error instead of scheduling.
+14. Recheck **upgrade preservation** of future, overdue and completed 0.1.0 tasks. Existing alarms created by 0.1.0 retain their old system buttons until explicitly rescheduled; Choose Time in the list works without re-creating the task.
+15. Deny permission in Settings and try snoozing: verify visible failure and retained task. Re-enable permission and retry. Cancel before saving and verify no mutation. Stop/remove the old system alarm before retrying and confirm the missing alarm is handled.
+16. Interrupt a snooze by closing the app around saving, then reopen. Expect either the matching new time reconciled or a visible failed/interrupted warning with manual retry. Never assume delivery from a registered badge alone. Simulator tests cover deterministic save-failure boundaries that are difficult to trigger manually.
 
-Record device/OS, commit, signing method, expected/actual result and pass/fail for each scenario. These unchecked items are manual acceptance work, not claims of success.
+Known limits: the system owns alarm presentation and authentication; old 0.1.0 alarms are not silently recreated to change buttons. Foreground reconciliation does not resurrect stopped alarms. Permission changes, reboot, Focus/silent mode, signing expiry and termination during system operations need physical checks. No sounds selection, silence/vibration configuration, Siri shortcuts, voice/LLM, Calendar, automatic repeats, widgets, sync or accounts are included.
 
-- [ ] Fresh install: create a reminder and observe the first AlarmKit permission prompt; allow it.
-- [ ] Create a reminder 2–3 minutes ahead. Confirm the saved task and registered status.
-- [ ] Lock the iPhone; wait for the real system alarm and check its task title.
-- [ ] Stop the alarm. Reopen Nudge: the task is incomplete and overdue, never automatically completed.
-- [ ] Explicitly mark it completed; confirm it moves to completed and survives relaunch.
-- [ ] Create another reminder, delete it before firing, lock the phone and confirm no alarm fires.
-- [ ] Complete a future reminder before firing and confirm its alarm is cancelled too.
-- [ ] Deny AlarmKit permission (reset/reinstall or change Settings as appropriate). Save a task; verify it persists, shows a warning, and the app remains usable. Enable permission and create a new task.
-- [ ] Create and register an alarm, kill Nudge, lock the phone, and confirm the alarm still fires. Reopen and confirm the task persists incomplete.
-- [ ] Relaunch around a reminder's due time and verify pending/overdue changes without changing completion.
-- [ ] Exploratory: repeat delivery in silent mode and Focus; record actual results.
-- [ ] Exploratory: reboot between scheduling and firing, unlock after reboot as needed; record delivery and retained task.
-- [ ] Exploratory: change time zone / cross a DST boundary and confirm the chosen absolute instant and local display.
-
-Develop on feature branches, use focused Conventional Commits/PRs, and validate Actions before review. Never merge without explicit authorization.
+Develop on feature branches with Conventional Commits. **Do not merge PR #3 before manual device review and explicit authorization.**

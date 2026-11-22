@@ -6,6 +6,8 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Reminder.scheduledAt) private var reminders: [Reminder]
     @State private var store: ReminderStore
+    @State private var snoozeRequest = SnoozeRequest.shared
+    @State private var snoozingReminder: Reminder?
     @State private var showingCreate = false
     @State private var showingCompleted = false
 
@@ -48,6 +50,10 @@ struct ContentView: View {
                                 Text(reminder.title).font(.headline)
                                 Text(reminder.scheduledAt, format: .dateTime.month().day().year().hour().minute())
                                     .font(.subheadline)
+                                if let next = reminder.nextAlarmAt {
+                                    Text("Next alarm: \(next.formatted(date: .abbreviated, time: .shortened))")
+                                        .font(.subheadline).foregroundStyle(.tint)
+                                }
                                 if reminder.state(at: timeline.date) == .overdue {
                                     Label("Overdue", systemImage: "exclamationmark.circle")
                                         .foregroundStyle(.red)
@@ -56,6 +62,12 @@ struct ContentView: View {
                                 }
                                 if reminder.completedAt == nil {
                                     alarmStatus(reminder)
+                                    Button("Choose Time", systemImage: "clock.arrow.circlepath") {
+                                        store.errorMessage = nil
+                                        snoozingReminder = reminder
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .frame(minHeight: 44)
                                 }
                             }
                         }
@@ -80,23 +92,50 @@ struct ContentView: View {
             .overlay {
                 if store.isBusy { ProgressView("Saving and scheduling…").padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) }
             }
-            .sheet(isPresented: $showingCreate) { CreateReminderView(store: store) }
+            .sheet(isPresented: $showingCreate, onDismiss: presentRequestedSnooze) { CreateReminderView(store: store) }
+            .sheet(item: $snoozingReminder, onDismiss: presentRequestedSnooze) { reminder in
+                SnoozeView(reminder: reminder, store: store)
+            }
+            .onChange(of: snoozeRequest.reminderID) { _, _ in presentRequestedSnooze() }
+            .onChange(of: store.isBusy) { _, busy in
+                if !busy { presentRequestedSnooze() }
+            }
             .alert("Nudge", isPresented: Binding(
-                get: { store.errorMessage != nil && !showingCreate },
+                get: { store.errorMessage != nil && !showingCreate && snoozingReminder == nil },
                 set: { if !$0 { store.errorMessage = nil } }
             )) {
                 Button("OK") { store.errorMessage = nil }
             } message: { Text(store.errorMessage ?? "") }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { store.refresh() }
+                if phase == .active { store.refresh(); presentRequestedSnooze() }
             }
             .task {
                 store.refresh()
+                presentRequestedSnooze()
                 for await _ in AlarmManager.shared.alarmUpdates {
                     guard !Task.isCancelled else { return }
                     store.refresh()
                 }
             }
+        }
+    }
+
+    private func presentRequestedSnooze() {
+        guard let id = snoozeRequest.reminderID, !store.isBusy else { return }
+        if showingCreate {
+            showingCreate = false
+            return // Present after the existing sheet has dismissed.
+        }
+        if let current = snoozingReminder, current.id != id {
+            snoozingReminder = nil
+            return
+        }
+        snoozeRequest.reminderID = nil
+        do {
+            snoozingReminder = try store.incompleteReminder(id: id)
+            store.errorMessage = nil
+        } catch {
+            store.errorMessage = error.localizedDescription
         }
     }
 

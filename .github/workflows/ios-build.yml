@@ -59,6 +59,24 @@ jobs:
           xcrun swift --version
           xcodebuild -showsdks
 
+      - name: Inspect Apple SDK declarations
+        if: matrix.artifact == 'iOS-Simulator'
+        run: |
+          mkdir -p sdk-reference
+          sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
+          for framework in AlarmKit AppIntents; do
+            mkdir -p "sdk-reference/$framework"
+            find "$sdk_path/System/Library/Frameworks/$framework.framework/Modules" -name '*.swiftinterface' -exec cp {} "sdk-reference/$framework/" \;
+          done
+
+      - name: Upload SDK reference
+        if: matrix.artifact == 'iOS-Simulator'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Apple-SDK-Reference
+          path: sdk-reference
+          retention-days: 14
+
       - name: Build Release application
         env:
           DESTINATION: ${{ matrix.destination }}
@@ -87,8 +105,8 @@ jobs:
           with (app / "Info.plist").open("rb") as source:
               info = plistlib.load(source)
           assert info["CFBundleIdentifier"] == "com.pavlovilya.nudge"
-          assert info["CFBundleShortVersionString"] == "0.1.0"
-          assert info["CFBundleVersion"] == "2"
+          assert info["CFBundleShortVersionString"] == "0.2.0"
+          assert info["CFBundleVersion"] == "3"
           assert info["MinimumOSVersion"] == "26.0"
           assert info["NSAlarmKitUsageDescription"].strip()
           artifact = f"Nudge-{info['CFBundleShortVersionString']}-{os.environ['SUFFIX']}"
@@ -141,6 +159,13 @@ jobs:
               output.write(f"id={max(candidates)[2]}\n")
           PYTHON
 
+      - name: Boot test simulator and wait for readiness
+        if: matrix.artifact == 'iOS-Simulator'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+
       - name: Run reminder unit tests
         if: matrix.artifact == 'iOS-Simulator'
         env:
@@ -153,8 +178,29 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath build-tests \
             -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             test
+
+      - name: Collect simulator launch diagnostics
+        if: failure() && matrix.artifact == 'iOS-Simulator'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          mkdir -p simulator-diagnostics
+          xcrun simctl list devices > simulator-diagnostics/devices.txt
+          xcrun simctl spawn "$SIMULATOR_ID" log show --last 15m --style compact \
+            --predicate 'process == "installd" OR process == "lsd" OR process == "SpringBoard"' \
+            > simulator-diagnostics/launch.log 2>&1 || true
+
+      - name: Upload simulator launch diagnostics
+        if: failure() && matrix.artifact == 'iOS-Simulator'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Nudge-Simulator-Diagnostics
+          path: simulator-diagnostics
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload test results
         if: always() && matrix.artifact == 'iOS-Simulator'
