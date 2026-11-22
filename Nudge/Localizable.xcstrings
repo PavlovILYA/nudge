@@ -1,5 +1,5 @@
 {
-  "sourceLanguage": "en",
+  "sourceLanguage": "ru",
   "strings": {
     "Choose Time": {
       "localizations": {
@@ -205,6 +205,902 @@
           "stringUnit": {
             "state": "translated",
             "value": "Следующий сигнал: %@"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        }
+      }
+    },
+    "Default sound": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default sound"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук по умолчанию"
+          }
+        }
+      }
+    },
+    "System melody": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System melody"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системная мелодия"
+          }
+        }
+      }
+    },
+    "Soft tone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soft tone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мягкий сигнал"
+          }
+        }
+      }
+    },
+    "Prominent tone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prominent tone"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выразительный сигнал"
+          }
+        }
+      }
+    },
+    "Vibration only (experimental)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vibration only (experimental)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только вибрация (эксперимент)"
+          }
+        }
+      }
+    },
+    "Applies only to new reminders. Existing reminders keep their saved sound.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies only to new reminders. Existing reminders keep their saved sound."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только для новых напоминаний. Созданные задачи сохраняют свой звук."
+          }
+        }
+      }
+    },
+    "Experimental: a silent file is requested. The system may play its default sound; vibration is not guaranteed. Verify on a real iPhone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimental: a silent file is requested. The system may play its default sound; vibration is not guaranteed. Verify on a real iPhone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эксперимент: выбран бесшумный файл. Система может включить стандартный звук; вибрация не гарантирована. Проверьте на реальном iPhone."
+          }
+        }
+      }
+    },
+    "Preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прослушать"
+          }
+        }
+      }
+    },
+    "AlarmKit parameter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AlarmKit parameter"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Параметр AlarmKit"
+          }
+        }
+      }
+    },
+    "Preview plays only here, respects Silent Mode and volume, and does not test AlarmKit playback.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview plays only here, respects Silent Mode and volume, and does not test AlarmKit playback."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прослушивание работает только здесь, учитывает бесшумный режим и громкость. Оно не проверяет воспроизведение AlarmKit."
+          }
+        }
+      }
+    },
+    "Could not preview the sound. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not preview the sound. Try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось воспроизвести звук. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "Reminder sound": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder sound"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук напоминания"
+          }
+        }
+      }
+    },
+    "Use default (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use default (%@)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общий выбор (%@)"
+          }
+        }
+      }
+    },
+    "1 hr": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hr"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 ч"
+          }
+        }
+      }
+    },
+    "%lld min": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мин"
+          }
+        }
+      }
+    },
+    "Other date and time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other date and time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другая дата и время"
+          }
+        }
+      }
+    },
+    "Expanded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expanded"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Развёрнуто"
+          }
+        }
+      }
+    },
+    "Collapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapsed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свёрнуто"
+          }
+        }
+      }
+    },
+    "Task title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task title"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название задачи"
+          }
+        }
+      }
+    },
+    "New reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое напоминание"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить"
+          }
+        }
+      }
+    },
+    "Show completed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show completed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать выполненные"
+          }
+        }
+      }
+    },
+    "No completed reminders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No completed reminders"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет выполненных задач"
+          }
+        }
+      }
+    },
+    "No reminders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No reminders"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет напоминаний"
+          }
+        }
+      }
+    },
+    "Tasks you mark done appear here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasks you mark done appear here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь появятся задачи, которые вы отметите выполненными."
+          }
+        }
+      }
+    },
+    "Tap + to create your first reminder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap + to create your first reminder."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нажмите +, чтобы создать напоминание."
+          }
+        }
+      }
+    },
+    "Complete %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить задачу «%@»"
+          }
+        }
+      }
+    },
+    "Overdue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overdue"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Просрочено"
+          }
+        }
+      }
+    },
+    "Completed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнено"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить"
+          }
+        }
+      }
+    },
+    "Create reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать напоминание"
+          }
+        }
+      }
+    },
+    "Stopping an alarm does not complete its task. Mark it done here when finished.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopping an alarm does not complete its task. Mark it done here when finished."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановка сигнала не завершает задачу. Отметьте её выполненной здесь, когда закончите."
+          }
+        }
+      }
+    },
+    "Alarm registered at last check": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm registered at last check"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал зарегистрирован при последней проверке"
+          }
+        }
+      }
+    },
+    "Alarm not confirmed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm not confirmed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Регистрация сигнала не подтверждена"
+          }
+        }
+      }
+    },
+    "No alarm registered · may have ended or stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No alarm registered · may have ended or stopped"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал не зарегистрирован — возможно, он уже завершён или остановлен"
+          }
+        }
+      }
+    },
+    "Alarm not confirmed. Choose a time to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm not confirmed. Choose a time to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал не подтверждён. Выберите время, чтобы повторить."
+          }
+        }
+      }
+    },
+    "Enter a task title.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a task title."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите название задачи."
+          }
+        }
+      }
+    },
+    "Choose a date and time in the future.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a date and time in the future."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите будущие дату и время."
+          }
+        }
+      }
+    },
+    "Alarm permission is denied. Allow alarms for Nudge in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm permission is denied. Allow alarms for Nudge in Settings."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет разрешения на будильники. Разрешите их для Nudge в настройках iOS."
+          }
+        }
+      }
+    },
+    "The selected sound file is missing. The alarm could not be scheduled.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected sound file is missing. The alarm could not be scheduled."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл выбранного звука отсутствует. Не удалось установить сигнал."
+          }
+        }
+      }
+    },
+    "Could not save the reminder. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save the reminder. Try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить напоминание. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "Reminder saved, but its alarm is not confirmed. Check alarm access in Settings and choose a time to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder saved, but its alarm is not confirmed. Check alarm access in Settings and choose a time to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напоминание сохранено, но сигнал не подтверждён. Проверьте разрешение в настройках iOS и выберите время ещё раз."
+          }
+        }
+      }
+    },
+    "This reminder was deleted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This reminder was deleted."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это напоминание удалено."
+          }
+        }
+      }
+    },
+    "This task is already completed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This task is already completed."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта задача уже выполнена."
+          }
+        }
+      }
+    },
+    "Could not cancel the alarm. Task remains incomplete. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not cancel the alarm. Task remains incomplete. Try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отменить сигнал. Задача остаётся невыполненной. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "Could not cancel the alarm. Reminder kept so you can retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not cancel the alarm. Reminder kept so you can retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отменить сигнал. Напоминание сохранено для повторной попытки."
+          }
+        }
+      }
+    },
+    "Snooze was interrupted or failed. Choose a time to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze was interrupted or failed. Choose a time to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откладывание прервано или не удалось. Выберите время ещё раз."
+          }
+        }
+      }
+    },
+    "Could not check system alarms. Reopen Nudge to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not check system alarms. Reopen Nudge to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось проверить системные будильники. Откройте Nudge заново."
+          }
+        }
+      }
+    },
+    "Could not save changes. The system alarm may already have changed. Reopen Nudge to check, then retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save changes. The system alarm may already have changed. Reopen Nudge to check, then retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось сохранить изменения. Системный сигнал уже мог измениться. Откройте Nudge заново для проверки и повторите попытку."
+          }
+        }
+      }
+    },
+    "Could not schedule the alarm. Check alarm access in Settings and choose a time to retry. Task completion is unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not schedule the alarm. Check alarm access in Settings and choose a time to retry. Task completion is unchanged."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось установить сигнал. Проверьте разрешение в настройках iOS и выберите время ещё раз. Выполненность задачи не изменилась."
+          }
+        }
+      }
+    },
+    "The reminder identifier is invalid.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The reminder identifier is invalid."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Некорректный идентификатор напоминания."
+          }
+        }
+      }
+    },
+    "Reminders unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminders unavailable"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Напоминания недоступны"
+          }
+        }
+      }
+    },
+    "Nudge could not open its saved reminders. Close and reopen the app to retry. Your data has not been reset.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge could not open its saved reminders. Close and reopen the app to retry. Your data has not been reset."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge не удалось открыть сохранённые напоминания. Закройте и откройте приложение ещё раз. Ваши данные не сброшены."
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ОК"
           }
         }
       }

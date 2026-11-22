@@ -1,18 +1,18 @@
+import OSLog
 import SwiftData
 import SwiftUI
 
 @main
 struct NudgeApp: App {
     private let container: ModelContainer?
-    private let storageError: String?
 
     init() {
         do {
             container = try ModelContainer(for: Reminder.self)
-            storageError = nil
         } catch {
             container = nil
-            storageError = error.localizedDescription
+            Logger(subsystem: "com.pavlovilya.nudge", category: "Storage")
+                .fault("Could not open reminders: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -25,7 +25,7 @@ struct NudgeApp: App {
                 ContentUnavailableView {
                     Label("Reminders unavailable", systemImage: "externaldrive.badge.exclamationmark")
                 } description: {
-                    Text("Nudge could not open its saved reminders. Close and reopen the app to retry. Your data has not been reset.\n\(storageError ?? "")")
+                    Text("Nudge could not open its saved reminders. Close and reopen the app to retry. Your data has not been reset.")
                 }
             }
         }

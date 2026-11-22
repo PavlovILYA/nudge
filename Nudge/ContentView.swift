@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var store: ReminderStore
     @State private var snoozeRequest = SnoozeRequest.shared
     @State private var snoozingReminder: Reminder?
+    @State private var showingSettings = false
     @State private var showingCreate = false
     @State private var showingCompleted = false
 
@@ -28,9 +29,9 @@ struct ContentView: View {
                     }
                     if visibleReminders.isEmpty {
                         ContentUnavailableView(
-                            showingCompleted ? "No completed reminders" : "No reminders",
+                            showingCompleted ? String(localized: "No completed reminders") : String(localized: "No reminders"),
                             systemImage: showingCompleted ? "checkmark.circle" : "alarm",
-                            description: Text(showingCompleted ? "Tasks you mark done appear here." : "Tap + to create your first reminder.")
+                            description: Text(showingCompleted ? String(localized: "Tasks you mark done appear here.") : String(localized: "Tap + to create your first reminder."))
                         )
                     }
                     ForEach(visibleReminders) { reminder in
@@ -48,6 +49,7 @@ struct ContentView: View {
                             }
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(reminder.title).font(.headline)
+                                Text(reminder.sound.title).font(.caption).foregroundStyle(.secondary)
                                 Text(reminder.scheduledAt, format: .dateTime.month().day().year().hour().minute())
                                     .font(.subheadline)
                                 if let next = reminder.nextAlarmAt {
@@ -84,6 +86,9 @@ struct ContentView: View {
             }
             .navigationTitle("Nudge")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Create reminder", systemImage: "plus") { showingCreate = true }
                 }
@@ -92,6 +97,7 @@ struct ContentView: View {
             .overlay {
                 if store.isBusy { ProgressView("Saving and scheduling…").padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12)) }
             }
+            .sheet(isPresented: $showingSettings, onDismiss: presentRequestedSnooze) { SoundSettingsView() }
             .sheet(isPresented: $showingCreate, onDismiss: presentRequestedSnooze) { CreateReminderView(store: store) }
             .sheet(item: $snoozingReminder, onDismiss: presentRequestedSnooze) { reminder in
                 SnoozeView(reminder: reminder, store: store)
@@ -101,7 +107,7 @@ struct ContentView: View {
                 if !busy { presentRequestedSnooze() }
             }
             .alert("Nudge", isPresented: Binding(
-                get: { store.errorMessage != nil && !showingCreate && snoozingReminder == nil },
+                get: { store.errorMessage != nil && !showingCreate && !showingSettings && snoozingReminder == nil },
                 set: { if !$0 { store.errorMessage = nil } }
             )) {
                 Button("OK") { store.errorMessage = nil }
@@ -122,6 +128,10 @@ struct ContentView: View {
 
     private func presentRequestedSnooze() {
         guard let id = snoozeRequest.reminderID, !store.isBusy else { return }
+        if showingSettings {
+            showingSettings = false
+            return
+        }
         if showingCreate {
             showingCreate = false
             return // Present after the existing sheet has dismissed.
@@ -150,7 +160,7 @@ struct ContentView: View {
             Label("No alarm registered · may have ended or stopped", systemImage: "alarm.waves.left.and.right.slash")
                 .font(.caption).foregroundStyle(.secondary)
         case .failed:
-            Label("Alarm not confirmed: \(reminder.alarmError ?? "Scheduling failed")", systemImage: "exclamationmark.triangle")
+            Label("Alarm not confirmed. Choose a time to retry.", systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange)
         }
     }

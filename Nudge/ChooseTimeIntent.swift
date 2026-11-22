@@ -23,7 +23,7 @@ struct ChooseTimeIntent: LiveActivityIntent {
 
     private enum RequestError: LocalizedError {
         case invalidID
-        var errorDescription: String? { "The reminder identifier is invalid." }
+        var errorDescription: String? { String(localized: "The reminder identifier is invalid.") }
     }
 }
 

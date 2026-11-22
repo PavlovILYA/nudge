@@ -1,11 +1,12 @@
 import AlarmKit
+import OSLog
 import SwiftUI
 
 /// The only system boundary. Tests supply closures and never request permissions.
 @MainActor
 struct AlarmService {
     var authorize: () async throws -> Void = {}
-    var schedule: (UUID, String, Date) async throws -> Void
+    var schedule: (UUID, String, Date, AlarmSound) async throws -> Void
     var cancel: (UUID) throws -> Void
     var scheduledAlarms: () throws -> [UUID: Date]
 
@@ -15,9 +16,10 @@ struct AlarmService {
             let authorization = try await manager.requestAuthorization()
             guard authorization == .authorized else { throw AlarmError.authorizationDenied }
         },
-        schedule: { id, title, date in
+        schedule: { id, title, date, sound in
             let manager = AlarmManager.shared
             try Reminder.validateSnoozeDate(date)
+            if sound.filename != nil, sound.resourceURL() == nil { throw AlarmError.missingSound }
             let chooseTime = AlarmButton(text: "Choose Time", textColor: .white, systemImageName: "clock.arrow.circlepath")
             let alert: AlarmPresentation.Alert
             if #available(iOS 26.1, *) {
@@ -36,8 +38,11 @@ struct AlarmService {
             )
             let configuration = AlarmManager.AlarmConfiguration(
                 schedule: .fixed(date), attributes: attributes,
-                secondaryIntent: ChooseTimeIntent(reminderID: id.uuidString))
+                secondaryIntent: ChooseTimeIntent(reminderID: id.uuidString), sound: sound.alertSound)
+            let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "AlarmScheduling")
+            logger.info("Scheduling id=\(id.uuidString, privacy: .public) mode=\(sound.rawValue, privacy: .public) sound=\(sound.diagnostic, privacy: .public) date=\(date.ISO8601Format(), privacy: .public)")
             _ = try await manager.schedule(id: id, configuration: configuration)
+            logger.info("Registration accepted id=\(id.uuidString, privacy: .public); delivery/audio/haptics unverified")
         },
         cancel: { id in
             let manager = AlarmManager.shared
@@ -59,10 +64,15 @@ struct AlarmService {
         }
     )
 
-    private enum AlarmError: LocalizedError {
-        case authorizationDenied
+    enum AlarmError: LocalizedError {
+        case authorizationDenied, missingSound
         var errorDescription: String? {
-            "Alarm permission is denied. Allow alarms for Nudge in Settings. This task is saved without a confirmed alarm."
+            switch self {
+            case .authorizationDenied:
+                String(localized: "Alarm permission is denied. Allow alarms for Nudge in Settings.")
+            case .missingSound:
+                String(localized: "The selected sound file is missing. The alarm could not be scheduled.")
+            }
         }
     }
 }
