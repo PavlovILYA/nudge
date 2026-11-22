@@ -318,6 +318,78 @@ final class ReminderTests: XCTestCase {
         XCTAssertNil(reminder.nextAlarmAt)
     }
 
+    func testSaveFailuresBeforeAndAfterSchedulingAreRecoverable() async throws {
+        for failingSave in [1, 2] {
+            let context = try memoryContext()
+            let original = Date.now.addingTimeInterval(600)
+            let reminder = try Reminder(title: "Task", scheduledAt: original)
+            context.insert(reminder)
+            try context.save()
+            let target = original.addingTimeInterval(600)
+            var registered = [reminder.alarmID: original]
+            var saves = 0
+            var cancellations = 0
+            let store = ReminderStore(context: context, alarms: AlarmService(
+                schedule: { id, _, date in registered[id] = date },
+                cancel: { cancellations += 1; registered.removeValue(forKey: $0) },
+                scheduledAlarms: { registered }), save: { context in
+                    saves += 1
+                    if saves == failingSave { throw TestError.denied }
+                    try context.save()
+                })
+            let result = await store.snooze(id: reminder.id, until: target)
+            XCTAssertFalse(result)
+            XCTAssertNotNil(store.errorMessage)
+            XCTAssertNil(reminder.completedAt)
+            XCTAssertEqual(cancellations, failingSave == 1 ? 0 : 1)
+            XCTAssertEqual(registered.count, 1)
+            XCTAssertEqual(registered[reminder.alarmID], failingSave == 1 ? original : target)
+            XCTAssertEqual(reminder.pendingSnoozeAt, failingSave == 1 ? nil : target)
+            store.refresh()
+            XCTAssertEqual(reminder.nextAlarmAt, failingSave == 1 ? nil : target)
+            XCTAssertNil(reminder.pendingSnoozeAt)
+        }
+    }
+
+    func testUncertainScheduleErrorReconcilesWithoutAnotherSystemWrite() async throws {
+        let context = try memoryContext()
+        let reminder = try Reminder(title: "Task", scheduledAt: Date.now.addingTimeInterval(600))
+        context.insert(reminder)
+        try context.save()
+        var registered: [UUID: Date] = [:]
+        var calls = 0
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            schedule: { id, _, date in
+                calls += 1
+                registered[id] = date
+                throw TestError.denied // System accepted it, client saw a failure.
+            }, cancel: { registered.removeValue(forKey: $0) }, scheduledAlarms: { registered }))
+        let target = Date.now.addingTimeInterval(1800)
+        let result = await store.snooze(id: reminder.id, until: target)
+        XCTAssertFalse(result)
+        store.refresh()
+        XCTAssertEqual(reminder.nextAlarmAt, target)
+        XCTAssertNil(reminder.pendingSnoozeAt)
+        XCTAssertEqual(reminder.alarmState, .registered)
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testIntentPassesCorrectTaskIDWithoutChangingTasks() async throws {
+        defer { SnoozeRequest.shared.reminderID = nil }
+        let id = UUID()
+        _ = try await ChooseTimeIntent(reminderID: id.uuidString).perform()
+        XCTAssertEqual(SnoozeRequest.shared.reminderID, id)
+        let another = UUID()
+        _ = try await ChooseTimeIntent(reminderID: another.uuidString).perform()
+        XCTAssertEqual(SnoozeRequest.shared.reminderID, another)
+        do {
+            _ = try await ChooseTimeIntent(reminderID: "invalid").perform()
+            XCTFail("Invalid ID must fail")
+        } catch {
+            XCTAssertEqual(SnoozeRequest.shared.reminderID, another)
+        }
+    }
+
     private func memoryContext() throws -> ModelContext {
         let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         return ModelContext(container)

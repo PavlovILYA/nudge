@@ -7,12 +7,15 @@ import SwiftData
 final class ReminderStore {
     private let context: ModelContext
     private let alarms: AlarmService
+    private let saveContext: (ModelContext) throws -> Void
     private(set) var isBusy = false
     var errorMessage: String?
 
-    init(context: ModelContext, alarms: AlarmService = .live) {
+    init(context: ModelContext, alarms: AlarmService = .live,
+         save: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.context = context
         self.alarms = alarms
+        self.saveContext = save
         context.autosaveEnabled = false
     }
 
@@ -26,7 +29,7 @@ final class ReminderStore {
             reminder = try Reminder(title: title, scheduledAt: date)
             context.insert(reminder)
             // This durable ID also covers termination during authorization/scheduling.
-            try context.save()
+            try saveContext(context)
         } catch {
             context.rollback()
             errorMessage = "Could not save reminder: \(error.localizedDescription)"
@@ -163,7 +166,7 @@ final class ReminderStore {
     @discardableResult
     private func saveChanges() -> Bool {
         do {
-            try context.save()
+            try saveContext(context)
             return true
         } catch {
             context.rollback()

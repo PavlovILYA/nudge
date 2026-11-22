@@ -17,6 +17,7 @@
         000000000000000000000202 = {isa = PBXBuildFile; fileRef = 000000000000000000000200; };
 		000000000000000000000140 = {isa = PBXBuildFile; fileRef = 000000000000000000000130; };
 		000000000000000000000141 = {isa = PBXBuildFile; fileRef = 000000000000000000000131; };
+		000000000000000000000142 = {isa = PBXBuildFile; fileRef = 000000000000000000000132; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		000000000000000000000120 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		000000000000000000000130 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChooseTimeIntent.swift; sourceTree = "<group>"; };
 		000000000000000000000131 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnoozeView.swift; sourceTree = "<group>"; };
+		000000000000000000000132 = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,7 +45,7 @@
 
 /* Begin PBXGroup section */
 		000000000000000000000009 = {isa = PBXGroup; children = (00000000000000000000000A, 000000000000000000000203, 00000000000000000000000B); sourceTree = "<group>"; };
-		00000000000000000000000A = {isa = PBXGroup; children = (000000000000000000000004, 000000000000000000000005, 000000000000000000000100, 000000000000000000000101, 000000000000000000000102, 000000000000000000000103, 000000000000000000000130, 000000000000000000000131, 000000000000000000000120, 000000000000000000000006); path = Nudge; sourceTree = "<group>"; };
+		00000000000000000000000A = {isa = PBXGroup; children = (000000000000000000000004, 000000000000000000000005, 000000000000000000000100, 000000000000000000000101, 000000000000000000000102, 000000000000000000000103, 000000000000000000000130, 000000000000000000000131, 000000000000000000000132, 000000000000000000000120, 000000000000000000000006); path = Nudge; sourceTree = "<group>"; };
 		00000000000000000000000B = {isa = PBXGroup; children = (000000000000000000000007, 000000000000000000000201); name = Products; sourceTree = "<group>"; };
 
         000000000000000000000203 = {isa = PBXGroup; children = (000000000000000000000200); path = NudgeTests; sourceTree = "<group>"; };
@@ -90,7 +92,7 @@
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base);
+			knownRegions = (en, ru, Base);
 			mainGroup = 000000000000000000000009;
 			productRefGroup = 00000000000000000000000B;
 			projectDirPath = "";
@@ -100,7 +102,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		00000000000000000000000D = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000003); runOnlyForDeploymentPostprocessing = 0; };
+		00000000000000000000000D = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000003, 000000000000000000000142); runOnlyForDeploymentPostprocessing = 0; };
 		00000000000000000000020D = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
