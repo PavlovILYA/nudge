@@ -64,7 +64,7 @@ jobs:
         run: |
           mkdir -p sdk-reference
           sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
-          for framework in AlarmKit AppIntents; do
+          for framework in AlarmKit AppIntents ActivityKit CoreHaptics AVFAudio AudioToolbox; do
             mkdir -p "sdk-reference/$framework"
             find "$sdk_path/System/Library/Frameworks/$framework.framework/Modules" -name '*.swiftinterface' -exec cp {} "sdk-reference/$framework/" \;
           done
