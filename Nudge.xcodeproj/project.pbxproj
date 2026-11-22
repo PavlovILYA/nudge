@@ -9,6 +9,12 @@
 		000000000000000000000001 /* NudgeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000004; };
 		000000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000005; };
 		000000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000006; };
+		000000000000000000000110 = {isa = PBXBuildFile; fileRef = 000000000000000000000100; };
+		000000000000000000000111 = {isa = PBXBuildFile; fileRef = 000000000000000000000101; };
+		000000000000000000000112 = {isa = PBXBuildFile; fileRef = 000000000000000000000102; };
+		000000000000000000000113 = {isa = PBXBuildFile; fileRef = 000000000000000000000103; };
+
+        000000000000000000000202 = {isa = PBXBuildFile; fileRef = 000000000000000000000200; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -16,16 +22,27 @@
 		000000000000000000000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		000000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		000000000000000000000007 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nudge.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000100 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
+		000000000000000000000101 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmService.swift; sourceTree = "<group>"; };
+		000000000000000000000102 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderStore.swift; sourceTree = "<group>"; };
+		000000000000000000000103 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateReminderView.swift; sourceTree = "<group>"; };
+
+        000000000000000000000200 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderTests.swift; sourceTree = "<group>"; };
+        000000000000000000000201 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = NudgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000120 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000000000008 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		000000000000000000000208 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		000000000000000000000009 = {isa = PBXGroup; children = (00000000000000000000000A, 00000000000000000000000B); sourceTree = "<group>"; };
-		00000000000000000000000A = {isa = PBXGroup; children = (000000000000000000000004, 000000000000000000000005, 000000000000000000000006); path = Nudge; sourceTree = "<group>"; };
-		00000000000000000000000B = {isa = PBXGroup; children = (000000000000000000000007); name = Products; sourceTree = "<group>"; };
+		000000000000000000000009 = {isa = PBXGroup; children = (00000000000000000000000A, 000000000000000000000203, 00000000000000000000000B); sourceTree = "<group>"; };
+		00000000000000000000000A = {isa = PBXGroup; children = (000000000000000000000004, 000000000000000000000005, 000000000000000000000100, 000000000000000000000101, 000000000000000000000102, 000000000000000000000103, 000000000000000000000120, 000000000000000000000006); path = Nudge; sourceTree = "<group>"; };
+		00000000000000000000000B = {isa = PBXGroup; children = (000000000000000000000007, 000000000000000000000201); name = Products; sourceTree = "<group>"; };
+
+        000000000000000000000203 = {isa = PBXGroup; children = (000000000000000000000200); path = NudgeTests; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -40,7 +57,26 @@
 			productReference = 000000000000000000000007;
 			productType = "com.apple.product-type.application";
 		};
+
+        000000000000000000000210 = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 000000000000000000000215;
+            buildPhases = (00000000000000000000020C, 000000000000000000000208, 00000000000000000000020D);
+            buildRules = ();
+            dependencies = (000000000000000000000216);
+            name = NudgeTests;
+            productName = NudgeTests;
+            productReference = 000000000000000000000201;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+        000000000000000000000217 = {isa = PBXContainerItemProxy; containerPortal = 000000000000000000000011; proxyType = 1; remoteGlobalIDString = 000000000000000000000010; remoteInfo = Nudge; };
+/* End PBXContainerItemProxy section */
+/* Begin PBXTargetDependency section */
+        000000000000000000000216 = {isa = PBXTargetDependency; target = 000000000000000000000010; targetProxy = 000000000000000000000217; };
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		000000000000000000000011 /* Project object */ = {
@@ -55,16 +91,18 @@
 			productRefGroup = 00000000000000000000000B;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (000000000000000000000010);
+			targets = (000000000000000000000010, 000000000000000000000210);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		00000000000000000000000D = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000003); runOnlyForDeploymentPostprocessing = 0; };
+		00000000000000000000020D = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		00000000000000000000000C = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000001, 000000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
+		00000000000000000000000C = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000001, 000000000000000000000002, 000000000000000000000110, 000000000000000000000111, 000000000000000000000112, 000000000000000000000113); runOnlyForDeploymentPostprocessing = 0; };
+		00000000000000000000020C = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000202); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -102,15 +140,16 @@
 		000000000000000000000022 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Nudge;
+				INFOPLIST_FILE = Nudge/Info.plist;
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pavlovilya.nudge;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -124,15 +163,16 @@
 		000000000000000000000023 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Nudge;
+				INFOPLIST_FILE = Nudge/Info.plist;
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				MARKETING_VERSION = 0.0.1;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pavlovilya.nudge;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -143,11 +183,40 @@
 			};
 			name = Release;
 		};
+
+        000000000000000000000220 = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                GENERATE_INFOPLIST_FILE = YES;
+                PRODUCT_BUNDLE_IDENTIFIER = com.pavlovilya.nudge.tests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SWIFT_VERSION = 6.0;
+                TARGETED_DEVICE_FAMILY = 1;
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nudge.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Nudge";
+            };
+            name = Debug;
+        };
+
+        000000000000000000000221 = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                GENERATE_INFOPLIST_FILE = YES;
+                PRODUCT_BUNDLE_IDENTIFIER = com.pavlovilya.nudge.tests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SWIFT_VERSION = 6.0;
+                TARGETED_DEVICE_FAMILY = 1;
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nudge.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Nudge";
+            };
+            name = Release;
+        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		000000000000000000000014 = {isa = XCConfigurationList; buildConfigurations = (000000000000000000000020, 000000000000000000000021); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		000000000000000000000015 = {isa = XCConfigurationList; buildConfigurations = (000000000000000000000022, 000000000000000000000023); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		000000000000000000000215 = {isa = XCConfigurationList; buildConfigurations = (000000000000000000000220, 000000000000000000000221); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = 000000000000000000000011;
