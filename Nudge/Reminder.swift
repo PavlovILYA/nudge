@@ -7,6 +7,9 @@ final class Reminder {
     private(set) var title: String
     private(set) var scheduledAt: Date
     private(set) var createdAt: Date
+    // Optional additions preserve the 0.1.0 store through lightweight migration.
+    var nextAlarmAt: Date?
+    var pendingSnoozeAt: Date?
     var completedAt: Date?
     private(set) var alarmID: UUID
     var alarmState: AlarmRegistration
@@ -22,6 +25,12 @@ final class Reminder {
         self.createdAt = now
         self.alarmID = id
         self.alarmState = .unconfirmed
+    }
+
+    var effectiveAlarmAt: Date { nextAlarmAt ?? scheduledAt }
+
+    static func validateSnoozeDate(_ date: Date, now: Date = .now) throws {
+        guard date.timeIntervalSince1970.isFinite, date > now else { throw ValidationError.pastDate }
     }
 
     func state(at now: Date) -> TaskState {
@@ -44,4 +53,10 @@ final class Reminder {
 
 enum AlarmRegistration: String, Codable {
     case unconfirmed, registered, failed, absent
+}
+
+enum SnoozeInterval: Int, CaseIterable, Identifiable {
+    case five = 5, ten = 10, fifteen = 15, thirty = 30, hour = 60
+    var id: Int { rawValue }
+    func date(from now: Date) -> Date { now.addingTimeInterval(Double(rawValue * 60)) }
 }

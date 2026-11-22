@@ -65,10 +65,8 @@ jobs:
           mkdir -p sdk-reference
           sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
           for framework in AlarmKit AppIntents; do
-            find "$sdk_path/System/Library/Frameworks/$framework.framework/Modules" -name '*.swiftinterface' -exec cp {} sdk-reference/ \;
-            for source in sdk-reference/*.swiftinterface; do
-              mv "$source" "sdk-reference/$framework-$(basename "$source")"
-            done
+            mkdir -p "sdk-reference/$framework"
+            find "$sdk_path/System/Library/Frameworks/$framework.framework/Modules" -name '*.swiftinterface' -exec cp {} "sdk-reference/$framework/" \;
           done
 
       - name: Upload SDK reference
@@ -107,8 +105,8 @@ jobs:
           with (app / "Info.plist").open("rb") as source:
               info = plistlib.load(source)
           assert info["CFBundleIdentifier"] == "com.pavlovilya.nudge"
-          assert info["CFBundleShortVersionString"] == "0.1.0"
-          assert info["CFBundleVersion"] == "2"
+          assert info["CFBundleShortVersionString"] == "0.2.0"
+          assert info["CFBundleVersion"] == "3"
           assert info["MinimumOSVersion"] == "26.0"
           assert info["NSAlarmKitUsageDescription"].strip()
           artifact = f"Nudge-{info['CFBundleShortVersionString']}-{os.environ['SUFFIX']}"
