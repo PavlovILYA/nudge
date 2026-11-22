@@ -1,0 +1,22 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "NSAlarmKitUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge schedules system alarms for the reminders you create."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge использует системные будильники для ваших напоминаний."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

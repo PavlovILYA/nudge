@@ -111,6 +111,9 @@ jobs:
           assert info["MinimumOSVersion"] == "26.0"
           assert info["NSAlarmKitUsageDescription"].strip()
           assert "audio" not in info.get("UIBackgroundModes", [])
+          for language in ("ru", "en"):
+              assert (app / f"{language}.lproj/Localizable.strings").is_file()
+              assert (app / f"{language}.lproj/InfoPlist.strings").is_file()
           for filename in ("nudge-soft.caf", "nudge-prominent.caf", "nudge-silent.caf"):
               sound = app / filename
               assert sound.is_file(), f"Missing sound resource: {sound}"
@@ -137,7 +140,7 @@ jobs:
             (cd ipa-stage && /usr/bin/zip -q -r ../artifacts/Nudge-0.3.0-4-Unsigned.ipa Payload)
           fi
 
-      - name: Upload application ZIP
+      - name: Upload application artifacts
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.metadata.outputs.artifact }}
