@@ -59,6 +59,26 @@ jobs:
           xcrun swift --version
           xcodebuild -showsdks
 
+      - name: Inspect Apple SDK declarations
+        if: matrix.artifact == 'iOS-Simulator'
+        run: |
+          mkdir -p sdk-reference
+          sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
+          for framework in AlarmKit AppIntents; do
+            find "$sdk_path/System/Library/Frameworks/$framework.framework/Modules" -name '*.swiftinterface' -exec cp {} sdk-reference/ \;
+            for source in sdk-reference/*.swiftinterface; do
+              mv "$source" "sdk-reference/$framework-$(basename "$source")"
+            done
+          done
+
+      - name: Upload SDK reference
+        if: matrix.artifact == 'iOS-Simulator'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Apple-SDK-Reference
+          path: sdk-reference
+          retention-days: 14
+
       - name: Build Release application
         env:
           DESTINATION: ${{ matrix.destination }}
