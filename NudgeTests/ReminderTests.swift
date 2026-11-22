@@ -102,6 +102,53 @@ final class ReminderTests: XCTestCase {
         XCTAssertEqual(reminder.id, reminder.alarmID)
     }
 
+    func testFiveSnoozeIntervalsAndDateValidation() throws {
+        XCTAssertEqual(SnoozeInterval.allCases.map(\.rawValue), [5, 10, 15, 30, 60])
+        for interval in SnoozeInterval.allCases {
+            XCTAssertEqual(interval.date(from: now).timeIntervalSince(now), Double(interval.rawValue * 60))
+        }
+        XCTAssertThrowsError(try Reminder.validateSnoozeDate(now, now: now))
+        XCTAssertThrowsError(try Reminder.validateSnoozeDate(now.addingTimeInterval(-1), now: now))
+        XCTAssertThrowsError(try Reminder.validateSnoozeDate(Date(timeIntervalSince1970: .infinity), now: now))
+        XCTAssertNoThrow(try Reminder.validateSnoozeDate(now.addingTimeInterval(1), now: now))
+    }
+
+    func testSnoozePersistsNewTimeWithoutCompletingOrDuplicating() async throws {
+        let context = try memoryContext()
+        let original = Date.now.addingTimeInterval(3600)
+        let target = original.addingTimeInterval(300)
+        let reminder = try Reminder(title: "Task", scheduledAt: original)
+        context.insert(reminder)
+        try context.save()
+        var registered = [reminder.alarmID: original]
+        var schedules = 0
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            schedule: { id, _, date in
+                XCTAssertTrue(registered.isEmpty)
+                XCTAssertEqual(reminder.pendingSnoozeAt, target)
+                XCTAssertFalse(context.hasChanges)
+                schedules += 1
+                registered[id] = date
+            }, cancel: { registered.removeValue(forKey: $0) },
+            scheduledAlarms: { registered }))
+        let result = await store.snooze(id: reminder.id, until: target)
+        XCTAssertTrue(result)
+        XCTAssertEqual(reminder.scheduledAt, original)
+        XCTAssertEqual(reminder.nextAlarmAt, target)
+        XCTAssertNil(reminder.pendingSnoozeAt)
+        XCTAssertNil(reminder.completedAt)
+        XCTAssertEqual(reminder.alarmState, .registered)
+        XCTAssertEqual(registered.count, 1)
+        let repeated = await store.snooze(id: reminder.id, until: target)
+        XCTAssertTrue(repeated)
+        XCTAssertEqual(schedules, 1)
+        let fresh = ModelContext(context.container)
+        let saved = try XCTUnwrap(fresh.fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertEqual(saved.nextAlarmAt, target)
+        XCTAssertEqual(saved.scheduledAt, original)
+        XCTAssertNil(saved.completedAt)
+    }
+
     private func memoryContext() throws -> ModelContext {
         let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         return ModelContext(container)
