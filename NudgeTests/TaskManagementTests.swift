@@ -174,6 +174,122 @@ final class TaskManagementTests: XCTestCase {
         }
     }
 
+    func testFailedMetadataEditCannotBeReconciledByDateAlone() async throws {
+        let context = try memory()
+        let date = Date.now.addingTimeInterval(600)
+        let reminder = try Reminder(title: "Before", scheduledAt: date)
+        context.insert(reminder)
+        try context.save()
+        var fail = true
+        var registrations = [reminder.id: date]
+        var acceptedTitles: [String] = []
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            schedule: { id, title, when, _ in
+                registrations[id] = when
+                if fail { throw TestError.failed }
+                acceptedTitles.append(title)
+            }, cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations }))
+        let result = await store.edit(id: reminder.id, title: "After", date: date, sound: .soft, calendarEnabled: false, calendarID: nil)
+        XCTAssertFalse(result)
+        XCTAssertEqual(reminder.title, "After")
+        XCTAssertTrue(reminder.alarmNeedsUpdate == true)
+        store.refresh()
+        XCTAssertTrue(reminder.alarmNeedsUpdate == true)
+        XCTAssertEqual(reminder.alarmState, .failed)
+        fail = false
+        let retried = await store.snooze(id: reminder.id, until: date)
+        XCTAssertTrue(retried)
+        XCTAssertEqual(acceptedTitles, ["After"])
+        XCTAssertFalse(reminder.alarmNeedsUpdate == true)
+    }
+
+    func testCalendarUnlinkAndCompletionKeepEvents() async throws {
+        let context = try memory()
+        var writes = 0
+        var removals = 0
+        let store = ReminderStore(context: context, alarms: fakeAlarms(), calendar: CalendarService(
+            hasAccess: { true }, upsert: { _ in writes += 1; return CalendarIdentity(eventID: "event", externalID: nil, calendarID: "calendar") },
+            remove: { _ in removals += 1 }))
+        _ = await store.create(title: "Task", date: Date.now.addingTimeInterval(600), calendarEnabled: true, calendarID: "calendar")
+        let reminder = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        let unlinked = await store.edit(id: reminder.id, title: reminder.title, date: reminder.scheduledAt, sound: reminder.sound, calendarEnabled: false, calendarID: "calendar")
+        XCTAssertTrue(unlinked)
+        store.refreshCalendar()
+        XCTAssertEqual(writes, 1)
+        XCTAssertEqual(reminder.calendarEventID, "event")
+        store.complete(reminder)
+        XCTAssertEqual(removals, 0)
+        XCTAssertNotNil(reminder.completedAt)
+        XCTAssertNil(store.activeAlarmDate(for: reminder))
+    }
+
+    func testPermissionRetryCreatesFirstEventAndMissingLinkedEventDoesNotCreateCopy() async throws {
+        let context = try memory()
+        var access = false
+        var missing = false
+        var writes = 0
+        let store = ReminderStore(context: context, alarms: fakeAlarms(), calendar: CalendarService(
+            hasAccess: { access }, upsert: { request in
+                if missing { XCTAssertFalse(request.allowCreate); throw CalendarError.missing }
+                XCTAssertTrue(request.allowCreate)
+                writes += 1
+                return CalendarIdentity(eventID: "event", externalID: "external", calendarID: "calendar")
+            }, remove: { _ in }))
+        _ = await store.create(title: "Task", date: Date.now.addingTimeInterval(600), calendarEnabled: true, calendarID: "calendar")
+        let reminder = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertNil(reminder.calendarEventDate)
+        access = true
+        store.retryCalendar(reminder)
+        XCTAssertEqual(writes, 1)
+        missing = true
+        store.retryCalendar(reminder)
+        store.refreshCalendar()
+        XCTAssertEqual(writes, 1)
+        XCTAssertNotNil(reminder.calendarError)
+        XCTAssertEqual(reminder.calendarEventID, "event")
+        XCTAssertNil(reminder.completedAt)
+    }
+
+    func testVersion030StoreMigrationPreservesEveryExistingField() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(url: directory.appendingPathComponent("legacy030.store"))
+        let id = UUID()
+        let date = Date.now.addingTimeInterval(600)
+        do {
+            let container = try ModelContainer(for: Legacy030.Reminder.self, configurations: configuration)
+            let context = ModelContext(container)
+            let item = Legacy030.Reminder(id: id, date: date)
+            context.insert(item)
+            let completed = Legacy030.Reminder(id: UUID(), date: date)
+            completed.completedAt = date
+            context.insert(completed)
+            try context.save()
+        }
+        let container = try ModelContainer(for: Reminder.self, configurations: configuration)
+        let items = try ModelContext(container).fetch(FetchDescriptor<Reminder>())
+        XCTAssertEqual(items.count, 2)
+        let item = try XCTUnwrap(items.first { $0.id == id })
+        XCTAssertEqual(item.id, id)
+        XCTAssertEqual(item.alarmID, id)
+        XCTAssertEqual(item.title, "Legacy 0.3.0")
+        XCTAssertEqual(item.scheduledAt, date)
+        XCTAssertEqual(item.createdAt, date.addingTimeInterval(-60))
+        XCTAssertEqual(item.nextAlarmAt, date.addingTimeInterval(300))
+        XCTAssertEqual(item.pendingSnoozeAt, date.addingTimeInterval(600))
+        XCTAssertEqual(item.sound, .experimentalVibrationOnly)
+        XCTAssertEqual(item.alarmState, .failed)
+        XCTAssertEqual(item.alarmError, "Legacy error")
+        XCTAssertNil(item.completedAt)
+        XCTAssertEqual(items.filter { $0.completedAt == date }.count, 1)
+        XCTAssertNil(item.calendarEnabled)
+        XCTAssertNil(item.calendarEventID)
+        XCTAssertNil(item.calendarEventDate)
+        XCTAssertNil(item.alarmDisabled)
+        XCTAssertNil(item.alarmNeedsUpdate)
+    }
+
     private func memory() throws -> ModelContext {
         ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
     }
@@ -181,4 +297,33 @@ final class TaskManagementTests: XCTestCase {
         AlarmService(schedule: { _, _, _, _ in }, cancel: { _ in }, scheduledAlarms: { [:] })
     }
     private enum TestError: Error { case failed }
+}
+
+private enum Legacy030 {
+    @Model final class Reminder {
+        @Attribute(.unique) var id: UUID
+        var title: String
+        var scheduledAt: Date
+        var createdAt: Date
+        var nextAlarmAt: Date?
+        var pendingSnoozeAt: Date?
+        var soundModeID: String?
+        var completedAt: Date?
+        var alarmID: UUID
+        var alarmState: AlarmRegistration
+        var alarmError: String?
+
+        init(id: UUID, date: Date) {
+            self.id = id
+            self.title = "Legacy 0.3.0"
+            self.scheduledAt = date
+            self.createdAt = date.addingTimeInterval(-60)
+            self.nextAlarmAt = date.addingTimeInterval(300)
+            self.pendingSnoozeAt = date.addingTimeInterval(600)
+            self.soundModeID = "experimentalVibrationOnly"
+            self.alarmID = id
+            self.alarmState = .failed
+            self.alarmError = "Legacy error"
+        }
+    }
 }
