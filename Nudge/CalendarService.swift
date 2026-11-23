@@ -91,9 +91,12 @@ private final class CalendarClient {
 
     func createCalendar() throws -> String {
         guard hasAccess else { throw CalendarError.permission }
-        let existing = store.calendars(for: .event).filter { $0.title == "Nudge" && $0.allowsContentModifications }
+        let existing = store.calendars(for: .event).filter { $0.title == "Nudge" }
         guard existing.count < 2 else { throw CalendarError.destination }
-        if let calendar = existing.first { return calendar.calendarIdentifier }
+        if let calendar = existing.first {
+            guard calendar.allowsContentModifications else { throw CalendarError.destination }
+            return calendar.calendarIdentifier
+        }
         let source = store.defaultCalendarForNewEvents?.source
             ?? store.sources.first { $0.sourceType == .local || $0.sourceType == .calDAV }
         guard let source else { throw CalendarError.destination }
