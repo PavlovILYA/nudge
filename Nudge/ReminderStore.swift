@@ -236,7 +236,7 @@ final class ReminderStore {
             }
             reminder.calendarNeedsSync = true
             reminder.calendarError = (error as? CalendarError)?.errorDescription
-                ?? String(localized: "Calendar could not be updated. Your task and its alarm are kept. Retry Calendar sync.")
+                ?? String(localized: "Calendar could not be updated. The task is kept; check alarm status separately. Retry Calendar sync.")
             log(error)
             _ = saveChanges()
             return false

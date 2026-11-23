@@ -1936,6 +1936,22 @@
           }
         }
       }
+    },
+    "Calendar could not be updated. The task is kept; check alarm status separately. Retry Calendar sync.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar could not be updated. The task is kept; check alarm status separately. Retry Calendar sync."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось обновить календарь. Задача сохранена; состояние сигнала показано отдельно. Повторите синхронизацию."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

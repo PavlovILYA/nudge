@@ -339,6 +339,15 @@ final class TaskManagementTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 0)
     }
 
+    func testProviderNormalizationDoesNotCauseCalendarWriteFeedback() {
+        let date = Date(timeIntervalSince1970: 1_900_000_000.4)
+        let request = CalendarRequest(id: UUID(), title: "Task", date: date, calendarID: "calendar", eventID: nil, externalID: nil, previousDate: nil, allowCreate: true)
+        XCTAssertTrue(request.matchesContent(title: "Task", start: date.addingTimeInterval(-0.4), end: request.endDate.addingTimeInterval(-0.4), notes: request.notes.replacingOccurrences(of: "\n", with: "\r\n"), hasAlarms: false, allDay: false))
+        XCTAssertFalse(request.matchesContent(title: "Task", start: date.addingTimeInterval(60), end: request.endDate, notes: request.notes, hasAlarms: false, allDay: false))
+        XCTAssertFalse(request.matchesContent(title: "Changed", start: date, end: request.endDate, notes: request.notes, hasAlarms: false, allDay: false))
+        XCTAssertFalse(request.matchesContent(title: "Task", start: date, end: request.endDate, notes: request.notes, hasAlarms: true, allDay: false))
+    }
+
     private func memory() throws -> ModelContext {
         ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
     }

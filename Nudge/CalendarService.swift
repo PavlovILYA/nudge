@@ -25,6 +25,14 @@ struct CalendarRequest {
     var endDate: Date { date.addingTimeInterval(900) }
     var url: URL { ReminderLink.url(for: id) }
     var notes: String { String(localized: "Managed by Nudge. Edit this task in Nudge.") + "\n" + Self.marker(for: id) }
+    func matchesContent(title: String?, start: Date?, end: Date?, notes: String?, hasAlarms: Bool, allDay: Bool) -> Bool {
+        guard let start, let end else { return false }
+        // Calendar providers may drop subsecond precision or canonicalize line endings.
+        let normalized = notes?.replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return title == self.title && abs(start.timeIntervalSince(date)) < 1
+            && abs(end.timeIntervalSince(endDate)) < 1 && normalized == self.notes
+            && !hasAlarms && !allDay
+    }
     static func marker(for id: UUID) -> String { "nudge-reminder-id:\(id.uuidString)" }
     static func owns(url: URL?, notes: String?, id: UUID) -> Bool {
         guard let url, ReminderLink.id(from: url) == id else { return false }
@@ -136,9 +144,8 @@ private final class CalendarClient {
             event.calendar = calendar
         }
         guard event.calendar?.allowsContentModifications == true else { throw CalendarError.destination }
-        let changed = existing == nil || event.title != request.title || event.startDate != request.date
-            || event.endDate != request.endDate || event.url != request.url || event.notes != request.notes
-            || event.hasAlarms || event.isAllDay
+        let changed = existing == nil || !request.matchesContent(title: event.title, start: event.startDate,
+            end: event.endDate, notes: event.notes, hasAlarms: event.hasAlarms, allDay: event.isAllDay)
         if changed {
             event.title = request.title
             event.startDate = request.date
