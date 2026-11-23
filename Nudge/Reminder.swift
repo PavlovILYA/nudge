@@ -10,6 +10,7 @@ final class Reminder {
     // Optional additions preserve the 0.1.0 store through lightweight migration.
     var nextAlarmAt: Date?
     var pendingSnoozeAt: Date?
+    var soundModeID: String?
     var completedAt: Date?
     private(set) var alarmID: UUID
     var alarmState: AlarmRegistration
@@ -26,6 +27,8 @@ final class Reminder {
         self.alarmID = id
         self.alarmState = .unconfirmed
     }
+
+    var sound: AlarmSound { AlarmSound(rawValue: soundModeID ?? "") ?? .systemDefault }
 
     var effectiveAlarmAt: Date { nextAlarmAt ?? scheduledAt }
 
@@ -44,8 +47,8 @@ final class Reminder {
         case emptyTitle, pastDate
         var errorDescription: String? {
             switch self {
-            case .emptyTitle: "Enter a task title."
-            case .pastDate: "Choose a date and time in the future."
+            case .emptyTitle: String(localized: "Enter a task title.")
+            case .pastDate: String(localized: "Choose a date and time in the future.")
             }
         }
     }

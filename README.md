@@ -1,116 +1,97 @@
 # Nudge
 
-Nudge **0.2.0 (3)** is a native iPhone app for persistent reminders with real AlarmKit system alarms and flexible snooze. **Stopping or snoozing an alarm never completes its task.** Completion is a separate action in the app.
+**0.3.0 (4)** — персональные напоминания с настоящими системными будильниками AlarmKit, выбором звука и гибким откладыванием. **Stop и Snooze никогда не завершают задачу.** Выполнение отмечается отдельной кнопкой в Nudge.
 
-## Use
+## Использование
 
-- Tap **+**, enter a title and future date/time, then **Save**. Allow AlarmKit access when asked. A task stays saved even if permission or scheduling fails.
-- When an alarm fires, **Stop** silences it without completing the task. The custom secondary action opens Nudge directly at that task's **Choose Time** sheet. On newer iOS versions the system may label this action **Open**, despite the app supplying localized Choose Time text. Unlock the iPhone when requested.
-- Tap **5 / 10 / 15 / 30 minutes / 1 hour** to immediately reschedule. The selected interval highlights while saving. For another time, use the standard **DatePicker** and tap **Schedule alarm**. The sheet shows the task title and proposed next alarm. Cancel or swipe down before saving to leave the schedule unchanged; controls and dismissal are disabled while saving.
-- You can also tap **Choose Time** on any incomplete task in the list, including a reminder whose alarm has stopped or failed. Enable alarms for Nudge in Settings before retrying denied access.
-- The list retains the **original task date** and shows the **next alarm** separately after snoozing. Overdue describes the original task deadline, even when the next signal is in the future.
-- Tap the circle to explicitly complete a task and cancel its alarm. **Show completed** displays completed tasks. Swipe left → **Delete** cancels the alarm and removes the task. Cancellation errors retain the record so you can retry.
-- Registration status is a snapshot, not proof of delivery. An absent alarm may have fired, stopped or been removed; this never changes completion.
+- **+** → название, будущие дата/время и звук → **Сохранить**. Задача сохраняется до запроса разрешения AlarmKit. При отказе или ошибке она остаётся в базе.
+- **Настройки → Звук по умолчанию** задаёт предпочтение только для **новых** напоминаний. Начальное безопасное значение — системная мелодия. При создании можно оставить общий выбор или указать индивидуальный. Итоговый режим сохраняется в самой задаче: последующее изменение общего предпочтения его не меняет.
+- Режимы: системная мелодия, мягкий сигнал, выразительный сигнал, **только вибрация (эксперимент)**. Для двух пользовательских мелодий есть локальное предпрослушивание. Оно учитывает громкость/бесшумный режим и останавливается при уходе из приложения. Это не настоящий будильник и не доказательство фонового воспроизведения AlarmKit.
+- **Эксперимент** передаёт AlarmKit бесшумный CAF. Он **не гарантирует ни тишины, ни вибрации**: система может проиграть стандартный звук или вообще не вибрировать. Предупреждение видно при выборе, в новых задачах с таким общим предпочтением и при откладывании экспериментальной задачи. Можно сохранить этот режим как собственное предпочтение, но до физического тестирования приложение не объявляет его надёжным.
+- При сигнале **Stop / Остановить** отключает будильник без выполнения задачи. Дополнительное действие открывает Nudge сразу с нужной задачей. iOS может назвать эту кнопку **Open / Открыть**; системные надписи приложение не контролирует.
+- В компактной панели выберите **5 / 10 / 15 / 30 мин / 1 ч** одним нажатием. Кнопки размещаются адаптивной сеткой, при очень крупном Dynamic Type — одним столбцом. **Другая дата и время** раскрывает стандартный DatePicker и кнопку установки сигнала. Название задачи и новое время видны сверху. Сохранение блокирует повторные нажатия и закрытие панели.
+- Отмена выбора не регистрирует новый сигнал. В списке доступны исходный срок задачи, отдельно следующее время сигнала, выбранный звук и последнее состояние регистрации. Просрочка относится к исходному сроку задачи.
+- Круг рядом с задачей явно завершает её и отменяет сигнал; **Показать выполненные** отображает завершённые. Свайп → **Удалить** отменяет будильник и удаляет запись. При ошибке отмены запись сохраняется для повторения.
 
-New snooze controls and app-supplied alarm button text have English and Russian translations; other languages fall back to English. Native system control labels follow iOS localization.
+Интерфейс и собственные сообщения ошибок доступны на русском и английском. Русский — основной язык ресурсов; английский выбирается стандартными языковыми настройками iOS. Названия задач остаются пользовательскими, системные кнопки и системные диалоги локализует iOS.
 
-## Platform and implementation
+## Реализация и сохранность данных
 
-Swift 6, SwiftUI, SwiftData, AlarmKit and App Intents; no dependencies. iPhone only, minimum **iOS 26.0**, bundle ID **`com.pavlovilya.nudge`**. Acceptance device: **iPhone 13 / iOS 27.2.1**. CI uses the latest installed stable Xcode 27 on `xcode-27`. The Intel development Mac with Command Line Tools does not need a modern local Xcode.
+Swift 6, SwiftUI, SwiftData, AlarmKit, ActivityKit, App Intents и AVFoundation. Сторонних зависимостей нет. iPhone, минимум **iOS 26.0**, bundle ID **`com.pavlovilya.nudge`**, версия **0.3.0**, build **4**. CI выбирает установленный стабильный Xcode 27 на `xcode-27`; локально современный Xcode не требуется.
 
-`Nudge.xcodeproj` includes a shared `Nudge` scheme. Build settings: `MARKETING_VERSION=0.2.0`, `CURRENT_PROJECT_VERSION=3`. Xcode merges `Nudge/Info.plist`, including `NSAlarmKitUsageDescription`, with generated settings. No Critical Alerts entitlement, notification fallback or Widget Extension is used.
+Общее предпочтение хранится в AppStorage/UserDefaults (`defaultAlarmSound`). Стабильные идентификаторы: `systemDefault`, `soft`, `prominent`, `experimentalVibrationOnly`. В Reminder добавлено только необязательное поле `soundModeID`; nil и неизвестное значение безопасно читаются как systemDefault. Старые ID, исходный срок, следующее время, журнал прерванного откладывания и выполнение сохраняются. Тесты открывают настоящие дисковые хранилища, записанные замороженными схемами 0.1.0 и 0.2.0.
 
-The existing SwiftData model gains only optional `nextAlarmAt` and `pendingSnoozeAt`. `scheduledAt`, ID, alarm ID and completion remain intact. SwiftData infers a lightweight migration; an automated test writes a disk store with a frozen copy of the 0.1.0 model and opens it with 0.2.0, checking both incomplete and completed records. Storage-open errors remain visible; the app never deletes or silently replaces the user's database.
+При обновлении **существующие системные будильники не пересоздаются автоматически**. Старые задачи используют системную мелодию; новое общее предпочтение не меняет их. Индивидуальный звук выбирается при создании. Отдельного редактора звука существующей задачи нет — это позволяет сохранить простую и проверенную транзакцию откладывания.
 
-A `Date` is an absolute instant, unlike a local calendar time. DatePicker handles local calendar/time zone entry; fixed AlarmKit schedules receive that instant directly. Travel changes the display, not the intended instant. The original reminder ID is also its stable AlarmKit ID. SwiftData writes and UI routing run on `MainActor`; awaited system work leaves the UI thread available, like suspending a coroutine rather than blocking a Java thread.
+SwiftData и AlarmKit не имеют общей транзакции. Сохраняется порядок 0.2.0: проверить дату/задачу → получить разрешение → проверить состояние после await → записать pendingSnoozeAt → отменить старый сигнал по стабильному ID → зарегистрировать новый с тем же ID и **сохранённым звуком задачи** → записать результат. При частичном сбое задача остаётся, ошибка видна, журнал позволяет сверить фактическую системную дату при следующем входе. Совпавшая регистрация не создаётся повторно. При отсутствии подтверждения предлагается ручной повтор, без автоматического воскрешения остановленного сигнала.
 
-## Rescheduling and partial failure
+SwiftData и UI работают на MainActor; await не блокирует главный поток, как приостановка coroutine вместо блокировки Java-потока. DatePicker выдаёт абсолютный Date для `.fixed(Date)`: смена часового пояса меняет отображение, а не сохранённый момент сигнала.
 
-SwiftData and AlarmKit have no shared transaction:
+## Звуки и исследование API
 
-1. Validate the future date and incomplete task. Obtain permission **before** removing any existing registration. Recheck the task and time after authorization suspends.
-2. Read actual fixed schedules. If the same ID already has the requested date, reconcile the local record without another cancel/schedule.
-3. Persist the requested date in `pendingSnoozeAt` before touching AlarmKit. If this save fails, leave the old alarm intact.
-4. Cancel the old alarm by its stable ID. This removes a sounding alarm and its old schedule. A cancellation error is tolerated only when a successful system read confirms the ID is absent. Otherwise stop and show the error.
-5. Register one new `.fixed(Date)` alarm with the same ID; only then save `nextAlarmAt`, registration state and clear the pending marker.
-6. On foreground entry and AlarmKit updates, compare any pending date with the actual fixed system schedule. A match completes the local save. A mismatch/missing alarm shows an interrupted/failed snooze and offers manual retry through Choose Time. No automatic rescheduling or background polling occurs.
+[Документация AlarmKit](https://developer.apple.com/documentation/alarmkit), [AlarmConfiguration](https://developer.apple.com/documentation/alarmkit/alarmmanager/alarmconfiguration) и [WWDC25 / 230](https://developer.apple.com/videos/play/wwdc2025/230/) подтверждают параметр `sound: AlertConfiguration.AlertSound`, `.default` и `.named(...)` для файла в app bundle или Library/Sounds. AlarmKit требует разрешения, ключ `NSAlarmKitUsageDescription` сохранён. Системные будильники могут проходить через Silent Mode и Focus — это не способ гарантированно заглушить их.
 
-Permission, scheduling and database errors are visible. A scheduling failure after cancellation can leave **no alarm**; the incomplete task and pending request remain saved for retry. If scheduling succeeded but the final local save failed, the pending marker allows reconciliation on relaunch. Repeated taps are guarded while any store operation is busy. Completion never follows from any of these operations.
+| Режим | Передаваемый параметр | Ресурс и отличительный рисунок |
+| --- | --- | --- |
+| Системный | `.default` | Мелодия, выбранная системой |
+| Мягкий | `.named("nudge-soft.caf")` | 1,8 с; один затухающий тон около 523 Гц |
+| Выразительный | `.named("nudge-prominent.caf")` | 2,4 с; три более заметных импульса 880 / 1175 / 880 Гц |
+| Экспериментальный | `.named("nudge-silent.caf")` | 2 с нулевых PCM-сэмплов; отсутствие вибрации или стандартный звук остаются возможны |
 
-## Apple API and Interactive Snippets research
+Все CAF оригинальные, синтезированы [скриптом стандартной библиотеки Python](scripts/generate-sounds.py) и macOS afconvert. Mono, 44,1 кГц, signed Int16 PCM; никаких коммерческих записей. [Правила системных sound-ресурсов](https://developer.apple.com/documentation/usernotifications/unnotificationsound) описывают PCM в CAF и ограничение менее 30 секунд. Это сопутствующая документация, а не гарантия поведения AlarmKit. Все файлы короткие, проверяются afinfo и декодированием AVAudioFile.
 
-The implementation uses `AlarmPresentation.Alert`, `AlarmButton`, secondary behavior `.custom`, `AlarmManager.AlarmConfiguration(secondaryIntent:)`, `AlarmManager.schedule/cancel`, `alarms`, `alarmUpdates`, authorization and `Alarm.Schedule.fixed`. The action is a `LiveActivityIntent` with a String UUID parameter. It requests `supportedModes = .foreground` and local device authentication, then sets one observable pending presentation request. The sheet consumes that request on cold or warm launch. The intent does not duplicate scheduling logic.
+Полное имя **с расширением `.caf`** передаётся буквально. В [теме форума 836432](https://developer.apple.com/forums/thread/836432) автор сообщил, что это исправило откат к стандартному звуку на iOS 26.5. Это наблюдение разработчика, а не гарантия для iOS 27. Отсутствующий ресурс вызывает ошибку приложения до передачи `.named`, вместо намеренного скрытого отката на `.default`.
 
-The installed SDK deprecates `openAppWhenRun` at iOS 26 in favor of `supportedModes`; the modern property is used. The stop-button initializer is deprecated at 26.1 and its property is no longer used, so iOS 26.1+ gets the system-provided stop control; only iOS 26.0 uses the older initializer.
+**Вибрация:** в исследованном публичном SDK нет параметра отключения звука или выбора haptic-паттерна для AlarmKit. Нулевые аудиосэмплы не задают haptics. [Core Haptics останавливается при приостановке приложения](https://developer.apple.com/documentation/corehaptics/preparing-your-app-to-play-haptics); [System Sound Services](https://developer.apple.com/documentation/audiotoolbox/audio-services) не предоставляют фонового планировщика системных будильников. Они не используются для имитации AlarmKit. Нет фонового audio mode, таймеров, BackgroundTasks, push-циклов или локальных уведомлений вместо будильника.
 
-[Apple's AlarmKit sample](https://developer.apple.com/documentation/alarmkit/scheduling-an-alarm-with-alarmkit) documents the custom action as opening the app. [WWDC25 AlarmKit](https://developer.apple.com/videos/play/wwdc2025/230/) demonstrates passing the alarm ID through a LiveActivityIntent. [Interactive Snippets](https://developer.apple.com/documentation/appintents/displaying-static-and-interactive-snippets) support compact follow-up controls in system hosts such as Siri, Spotlight and Shortcuts. **A supported AlarmKit → locked-screen interactive snippet host was not established.** Nudge therefore opens its own native sheet through the documented custom action; it makes no attempt to overlay arbitrary SwiftUI on the system alarm or bypass authentication. Exact button wording and the unlock transition require physical-device acceptance.
+Предпрослушивание использует AVAudioPlayer только в открытом приложении. Оно не запускает AlarmKit. Параметр выбранного звука виден рядом с настройкой; диагностические записи OSLog (`com.pavlovilya.nudge`, категория `AlarmScheduling`) фиксируют ID, время, режим и точное имя файла, реально переданные при регистрации, без названия задачи. В macOS Console выберите подключённый iPhone и фильтруйте по subsystem/category. Лог принятой регистрации **не подтверждает**, какой звук или вибрация произошли.
 
-See [design, implementation plan and research links](docs/flexible-snooze.md). CI exports the installed SDK declarations as evidence.
+Stop, пользовательская вторичная кнопка, UUID в LiveActivityIntent, `supportedModes = .foreground`, аутентификация и SwiftUI sheet сохранены. Исследование Interactive Snippets из 0.2.0 остаётся в [документе](docs/flexible-snooze.md); неподтверждённый lock-screen snippet и Widget Extension не добавлены. [План и подробности 0.3.0](docs/sounds-vibration.md).
 
-## CI and tests
+## CI, артефакты и установка
 
-[Pull request #3](https://github.com/PavlovILYA/nudge/pull/3) targets `main` and must remain unmerged until physical acceptance. [GitHub Actions](https://github.com/PavlovILYA/nudge/actions/workflows/ios-build.yml) preserves separate **Release** simulator and unsigned physical-device builds, plus simulator unit tests. Built plist checks require version **0.2.0**, build **3**, bundle ID **com.pavlovilya.nudge**, iOS 26 minimum and a nonempty AlarmKit permission description.
+[PR #4](https://github.com/PavlovILYA/nudge/pull/4) → main. **Не сливать до ручного тестирования и явного разрешения.** [GitHub Actions](https://github.com/PavlovILYA/nudge/actions/workflows/ios-build.yml) сохраняет Release-сборки Simulator и unsigned iOS Device, unit-тесты, проверку встроенных CAF, версии/build/Bundle ID и экспорт объявлений SDK.
 
-Artifacts (14-day retention):
+Артефакты хранятся 14 дней:
 
-| Artifact | Contents |
+| Артефакт | Содержимое |
 | --- | --- |
-| `Nudge-0.2.0-iOS-Simulator` | ZIP of simulator `Nudge.app` |
-| `Nudge-0.2.0-iOS-Device-Unsigned` | ZIP of device `Nudge.app`; manual signing required |
-| `Nudge-TestResults` | Simulator `.xcresult` test results |
-| `Apple-SDK-Reference` | Installed AlarmKit / AppIntents `.swiftinterface` declarations |
+| `Nudge-0.3.0-iOS-Simulator` | ZIP приложения для Simulator |
+| `Nudge-0.3.0-iOS-Device-Unsigned` | ZIP приложения для iPhone и готовый **`Nudge-0.3.0-4-Unsigned.ipa`** для Sideloadly |
+| `Nudge-TestResults` | Результаты Simulator `.xcresult` |
+| `Apple-SDK-Reference` | Объявления AlarmKit, ActivityKit, App Intents и связанных фреймворков |
 
-Tests cover all five interval calculations, future date validation, persistence, unchanged completion, no duplicate registrations, denied permission, cancellation/scheduling errors and retry, repeated/concurrent requests, deletion/completion, task changes during authorization, interrupted saves, uncertain scheduling outcomes, foreground reconciliation, intent UUID routing and legacy migration. They replace only system alarm closures and inject save errors; they never schedule real alarms or request live permissions.
+Unit-тесты подменяют системные вызовы, не регистрируют реальные будильники и не запрашивают разрешение. Они проверяют прежние сценарии и новые настройки/ресурсы/миграцию/передачу звука/сохранение после Snooze и ошибок. Они не доказывают фактическое звучание, вибрацию, фон и блокировку.
 
-With compatible Xcode:
+Скачайте device-артефакт из успешного Actions, извлеките IPA и откройте его в **Sideloadly** на Mac. Подпишите своим Apple ID, установите на доверенный iPhone с Developer Mode. Ключи и профили не добавляются в репозиторий/CI. Бесплатная подпись обычно действует семь дней. Unsigned IPA требует подписи; простое переименование ZIP не подписывает приложение.
 
-```sh
-xcodebuild -project Nudge.xcodeproj -scheme Nudge \
-  -configuration Debug -destination 'platform=iOS Simulator,name=<installed iPhone>' \
-  -derivedDataPath build-tests CODE_SIGNING_ALLOWED=NO test
-```
+**Обновление с 0.2.0:** устанавливайте поверх, с прежними signing identity и фактическим Bundle ID. Не удаляйте Nudge — удаление уничтожает локальную базу. Sideloadly может изменить идентификатор: сохраните прежнюю настройку. Запишите задачи и даты до обновления; после проверьте завершённые, просроченные, отложенные и ещё запланированные записи. Существующие будильники/кнопки не обновляются автоматически. Общее предпочтение изначально системное, новая колонка старых записей — nil. Неудача открытия базы показывается явно, база не сбрасывается.
 
-CI does not prove physical alarm delivery, lock-screen routing or signing behavior.
+## Физическая проверка — iPhone 13 / iOS 27.2.1
 
-## Install on iPhone 13
+Пользователь подтвердил в **0.2.0** настоящий системный сигнал, дополнительную кнопку, открытие панели времени и регистрацию нового времени. **Звуки и экспериментальная вибрация 0.3.0 ещё не проверены на устройстве.** Не отмечайте пункты выполненными по результатам CI или Preview.
 
-AlarmKit delivery in **0.1.0** was confirmed by the user on iPhone 13 / iOS 27.2.1. **0.2.0 physical-device acceptance has not been run.**
+Перед началом запишите commit, версию 0.3.0 (4), устройство/iOS, подпись/Bundle ID, язык, громкость сигналов, Ring/Silent, Focus, настройки системной вибрации, подключённые аудиоустройства/Apple Watch. Для сравнения используйте одинаковые условия. Каждую задачу назовите по режиму и условию теста; сигнал ставьте через две минуты.
 
-1. Download `Nudge-0.2.0-iOS-Device-Unsigned` from the successful PR Actions run. Extract the GitHub artifact and its inner ZIP to obtain `Nudge.app`.
-2. In a temporary directory containing `Nudge.app`, package it:
+1. Обновите установленную 0.2.0 **без удаления**. Сверьте ID/названия, исходные и следующие даты, выполненность. Убедитесь, что старые записи читаются с системным звуком.
+2. В Настройках проверьте начальную системную мелодию. Выберите мягкий режим, закройте/откройте Nudge: предпочтение сохранено. Создайте задачу с общим режимом и другую с индивидуальным выразительным; смените общий режим ещё раз — созданные задачи должны сохранить свои звуки.
+3. При выключенном Silent Mode нажмите Preview для мягкого и выразительного режима. Запомните рисунок: мягкий одиночный затухающий тон; выразительный три более высоких импульса. Preview не является зачётом следующих пунктов.
+4. Создайте **системный** будильник, заблокируйте iPhone и дождитесь сигнала. Запишите базовую системную мелодию и вибрацию. Проверьте Stop: задача остаётся невыполненной, нового сигнала автоматически нет.
+5. Повторите с **мягким CAF**. Сравните с Preview и системным baseline. Если звучит системная мелодия, запишите **fallback**, а не успех пользовательского звука. Зафиксируйте рисунок, а не только факт звучания.
+6. Повторите с **выразительным CAF**, отличив тройной рисунок от мягкого и baseline. Запишите возможное повторение файла системой.
+7. Выберите **эксперимент**, прочитайте предупреждение и создайте задачу. Заблокируйте iPhone, дождитесь события. Независимо отметьте: появился ли экран AlarmKit; был ли любой звук (включая системный); была ли реальная вибрация. Тишина без вибрации **не** означает vibration-only. Успех этого эксперимента требует одновременно системного экрана, тишины и вибрации.
+8. Повторите четыре режима с **Silent Mode включённым**, сохранив прочие условия. Отдельно — с **Focus**, затем Silent + Focus. Не предполагайте, что эти настройки заглушат AlarmKit.
+9. Для каждого режима зарегистрируйте задачу, **полностью закройте Nudge**, заблокируйте экран и дождитесь события. Фоновый эффект не должен зависеть от открытого приложения. Проверяйте при отключённом Mac/отладчике тоже.
+10. На системном экране каждого режима нажмите **Choose Time / Open**. Запишите требование разблокировки. Выберите пять минут: текущий сигнал прекращается, новое время сохраняется, задача не завершена. Заблокируйте телефон и дождитесь повторного сигнала: **режим звука должен сохраниться**. Проверьте также произвольные дату/время.
+11. Быстро нажмите Snooze несколько раз, перепланируйте задачу последовательно и дождитесь старых/нового времени: не должно быть дублей. Завершите/удалите отдельную отложенную задачу — последующего сигнала быть не должно.
+12. Проверьте компактную панель в светлой/тёмной теме, на русском/английском, с VoiceOver и крупнейшим Dynamic Type: кнопки читаются и озвучиваются с полным интервалом, доступны прокрутка, выбор даты и отмена. Отмена не планирует сигнал.
+13. Откажите AlarmKit в разрешении и повторите создание/откладывание: видна локализованная ошибка, задача сохранена, выполнение не изменено. Верните разрешение, повторите вручную.
+14. После всех экспериментов повторно запустите приложение и проверьте настройки/задачи. До подтверждения надёжности эксперимента оставьте системную мелодию своим предпочтением для важных напоминаний.
 
-   ```sh
-   mkdir -p Payload
-   cp -R Nudge.app Payload/
-   /usr/bin/zip -r Nudge-0.2.0.ipa Payload
-   ```
+Для **каждого** режима/условия заполните строку, не объединяя звук и вибрацию в один результат:
 
-3. Connect/trust the iPhone and use **Sideloadly** with your free Apple ID to sign/install. Keep credentials/profiles outside this repository. Enable Developer Mode and trust the profile in Settings if required.
-4. For upgrade testing, install over 0.1.0 with the **same signing identity and effective bundle ID**. Do not uninstall: uninstalling removes local tasks. Signing tools can change application identifiers; record and preserve the actual identity.
+| Режим, имя CAF/`.default` | Silent / Focus | Экран заблокирован / Nudge закрыт | Звук: какой / тишина / fallback | Вибрация: да/нет | Экран AlarmKit | Stop | Choose Time | Разблокировка | Звук после Snooze | Дубли | Результат |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Не испытано | — | — | — | — | — | — | — | — | — | — | Не испытано |
 
-Free Apple ID signing lasts seven days; re-sign when needed. An unsigned app or a ZIP renamed IPA is not installable by itself. CI does not deploy, release, tag or merge.
-
-## Physical acceptance — iPhone 13, iOS 27.2.1 — not yet run for 0.2.0
-
-Record commit, app version/build, device/OS, signing identity, language, expected/actual result and pass/fail. Run in light and dark appearance; check large text and portrait iPhone 13 layout.
-
-1. **Upgrade preparation:** on 0.1.0 create at least one future task, one overdue incomplete task and one completed task. Record titles/dates. Install 0.2.0 over it without uninstalling; verify all records and completion values survived.
-2. Create a fresh reminder **two minutes ahead** and allow AlarmKit access. Verify registration and the original task date.
-3. **Lock the iPhone** and wait for the real AlarmKit alarm. Record the system title and actual stop/custom-action labels in Russian and English.
-4. Tap **Choose Time** (or the system's **Open** label). Verify Nudge opens directly to that task's sheet without searching the list.
-5. Record whether Face ID/passcode unlock is required. Repeat with authentication cancelled; no snooze should be saved without a time selection.
-6. Tap **5 minutes** once. Verify selected feedback, disabled controls while saving and sheet dismissal on success. Check the new alarm time is about five minutes from the tap.
-7. Verify the **original signal stopped** and only one future registration is reported. Check the original deadline remains visible separately.
-8. Verify the task **remains incomplete**. Do not tap its completion circle.
-9. Lock the phone and **wait for the repeat alarm**. Verify exactly one signal at the new time, with the same task title. Repeat quick selections for **10 / 15 / 30 / 60 minutes** as time permits; verify each chosen time persists after relaunch.
-10. Open Choose Time and use **DatePicker** to choose a specific future date/time. Save, reopen the app and verify persistence; wait for a near-future custom selection to confirm delivery. A past time must be rejected. Cancel a separate selection and verify its schedule does not change.
-11. On another alarm tap **Stop without snoozing**. Reopen Nudge: the task is still incomplete; no automatic repeat alarm is created.
-12. Schedule a snooze, **force-close Nudge**, lock the iPhone and verify system delivery. Reopen before/after firing: task and saved dates persist. Repeat custom-action routing with Nudge terminated and already open (including when the create sheet is open).
-13. Check **no duplicates**: tap rapidly, reschedule the same task several times, and verify no signal at superseded times. Complete/delete a snoozed task and verify no later signal. An old action for a completed/deleted task must show an error instead of scheduling.
-14. Recheck **upgrade preservation** of future, overdue and completed 0.1.0 tasks. Existing alarms created by 0.1.0 retain their old system buttons until explicitly rescheduled; Choose Time in the list works without re-creating the task.
-15. Deny permission in Settings and try snoozing: verify visible failure and retained task. Re-enable permission and retry. Cancel before saving and verify no mutation. Stop/remove the old system alarm before retrying and confirm the missing alarm is handled.
-16. Interrupt a snooze by closing the app around saving, then reopen. Expect either the matching new time reconciled or a visible failed/interrupted warning with manual retry. Never assume delivery from a registered badge alone. Simulator tests cover deterministic save-failure boundaries that are difficult to trigger manually.
-
-Known limits: the system owns alarm presentation and authentication; old 0.1.0 alarms are not silently recreated to change buttons. Foreground reconciliation does not resurrect stopped alarms. Permission changes, reboot, Focus/silent mode, signing expiry and termination during system operations need physical checks. No sounds selection, silence/vibration configuration, Siri shortcuts, voice/LLM, Calendar, automatic repeats, widgets, sync or accounts are included.
-
-Develop on feature branches with Conventional Commits. **Do not merge PR #3 before manual device review and explicit authorization.**
+Не реализованы Siri/голос/LLM, Calendar, автоматические повторы до выполнения, собственное фоновое аудио, sync, виджеты и аккаунты. Приложение не обещает vibration-only на основании формата файла, разрешения или успешного schedule.

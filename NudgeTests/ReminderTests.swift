@@ -1,3 +1,5 @@
+import ActivityKit
+import AVFoundation
 import SwiftData
 import XCTest
 @testable import Nudge
@@ -51,7 +53,7 @@ final class ReminderTests: XCTestCase {
 
     func testCreationPersistsBeforeSchedulingAndKeepsTaskOnFailure() async throws {
         let context = try memoryContext()
-        let alarms = AlarmService(schedule: { id, _, date in
+        let alarms = AlarmService(schedule: { id, _, date, _ in
             let saved = try context.fetch(FetchDescriptor<Reminder>())
             XCTAssertEqual(saved.first?.alarmID, id)
             XCTAssertFalse(context.hasChanges)
@@ -73,14 +75,14 @@ final class ReminderTests: XCTestCase {
         context.insert(reminder)
         try context.save()
         let failing = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { _, _, _ in }, cancel: { _ in throw TestError.denied }, scheduledAlarms: { [:] }))
+            schedule: { _, _, _, _ in }, cancel: { _ in throw TestError.denied }, scheduledAlarms: { [:] }))
         failing.complete(reminder)
         XCTAssertNil(reminder.completedAt)
         failing.delete(reminder)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 1)
         XCTAssertNotNil(failing.errorMessage)
         let working = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { _, _, _ in }, cancel: { XCTAssertEqual($0, reminder.alarmID) }, scheduledAlarms: { [:] }))
+            schedule: { _, _, _, _ in }, cancel: { XCTAssertEqual($0, reminder.alarmID) }, scheduledAlarms: { [:] }))
         working.complete(reminder)
         XCTAssertNotNil(reminder.completedAt)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 1)
@@ -94,7 +96,7 @@ final class ReminderTests: XCTestCase {
         context.insert(reminder)
         try context.save()
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { _, _, _ in XCTFail("Refresh must not reschedule") },
+            schedule: { _, _, _, _ in XCTFail("Refresh must not reschedule") },
             cancel: { _ in XCTFail("Refresh must not cancel") }, scheduledAlarms: { [:] }))
         store.refresh()
         XCTAssertNil(reminder.completedAt)
@@ -123,7 +125,7 @@ final class ReminderTests: XCTestCase {
         var registered = [reminder.alarmID: original]
         var schedules = 0
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { id, _, date in
+            schedule: { id, _, date, _ in
                 XCTAssertTrue(registered.isEmpty)
                 XCTAssertEqual(reminder.pendingSnoozeAt, target)
                 XCTAssertFalse(context.hasChanges)
@@ -158,7 +160,7 @@ final class ReminderTests: XCTestCase {
         var shouldFail = true
         var registered: [UUID: Date] = [:]
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { id, _, date in
+            schedule: { id, _, date, _ in
                 if shouldFail { throw TestError.denied }
                 registered[id] = date
             }, cancel: { registered.removeValue(forKey: $0) }, scheduledAlarms: { registered }))
@@ -188,7 +190,7 @@ final class ReminderTests: XCTestCase {
             var cancelled = false
             let store = ReminderStore(context: context, alarms: AlarmService(
                 authorize: { if denyAuthorization { throw TestError.denied } },
-                schedule: { _, _, _ in XCTFail("Must not schedule after failure") },
+                schedule: { _, _, _, _ in XCTFail("Must not schedule after failure") },
                 cancel: { _ in cancelled = true; throw TestError.denied },
                 scheduledAlarms: { [reminder.alarmID: date] }))
             let result = await store.snooze(id: reminder.id, until: date.addingTimeInterval(300))
@@ -207,7 +209,7 @@ final class ReminderTests: XCTestCase {
         context.insert(reminder)
         try context.save()
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { _, _, _ in XCTFail("Invalid request") },
+            schedule: { _, _, _, _ in XCTFail("Invalid request") },
             cancel: { _ in XCTFail("Invalid request") }, scheduledAlarms: { [:] }))
         let past = await store.snooze(id: reminder.id, until: .distantPast)
         XCTAssertFalse(past)
@@ -230,7 +232,7 @@ final class ReminderTests: XCTestCase {
         var continuation: CheckedContinuation<Void, Never>?
         var calls = 0
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { _, _, _ in
+            schedule: { _, _, _, _ in
                 calls += 1
                 await withCheckedContinuation { continuation = $0 }
             }, cancel: { _ in }, scheduledAlarms: { [:] }))
@@ -261,7 +263,7 @@ final class ReminderTests: XCTestCase {
             try context.save()
             let reopened = ModelContext(context.container)
             let store = ReminderStore(context: reopened, alarms: AlarmService(
-                schedule: { _, _, _ in XCTFail("Never automatically retry interrupted intent") },
+                schedule: { _, _, _, _ in XCTFail("Never automatically retry interrupted intent") },
                 cancel: { _ in XCTFail("Never cancel on refresh") },
                 scheduledAlarms: { [reminder.alarmID: registered ? target : reminder.scheduledAt] }))
             store.refresh()
@@ -310,7 +312,7 @@ final class ReminderTests: XCTestCase {
         try context.save()
         let store = ReminderStore(context: context, alarms: AlarmService(
             authorize: { reminder.completedAt = .now; try context.save() },
-            schedule: { _, _, _ in XCTFail("Task became completed") },
+            schedule: { _, _, _, _ in XCTFail("Task became completed") },
             cancel: { _ in XCTFail("Task became completed") }, scheduledAlarms: { [:] }))
         let result = await store.snooze(id: reminder.id, until: Date.now.addingTimeInterval(1800))
         XCTAssertFalse(result)
@@ -330,7 +332,7 @@ final class ReminderTests: XCTestCase {
             var saves = 0
             var cancellations = 0
             let store = ReminderStore(context: context, alarms: AlarmService(
-                schedule: { id, _, date in registered[id] = date },
+                schedule: { id, _, date, _ in registered[id] = date },
                 cancel: { cancellations += 1; registered.removeValue(forKey: $0) },
                 scheduledAlarms: { registered }), save: { context in
                     saves += 1
@@ -359,7 +361,7 @@ final class ReminderTests: XCTestCase {
         var registered: [UUID: Date] = [:]
         var calls = 0
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { id, _, date in
+            schedule: { id, _, date, _ in
                 calls += 1
                 registered[id] = date
                 throw TestError.denied // System accepted it, client saw a failure.
@@ -390,6 +392,115 @@ final class ReminderTests: XCTestCase {
         }
     }
 
+    func testSoundDefaultsAndStableIdentifiers() throws {
+        XCTAssertEqual(AlarmSound.allCases.map(\.rawValue), ["systemDefault", "soft", "prominent", "experimentalVibrationOnly"])
+        let reminder = try Reminder(title: "Old task", scheduledAt: Date.now.addingTimeInterval(600))
+        XCTAssertEqual(reminder.sound, .systemDefault)
+        reminder.soundModeID = "unknown-future-mode"
+        XCTAssertEqual(reminder.sound, .systemDefault)
+        XCTAssertEqual(AlarmSound.preferenceKey, "defaultAlarmSound")
+        let suite = "nudge-tests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertEqual(AlarmSound(rawValue: defaults.string(forKey: AlarmSound.preferenceKey) ?? "" ) ?? .systemDefault, .systemDefault)
+        defaults.set(AlarmSound.experimentalVibrationOnly.rawValue, forKey: AlarmSound.preferenceKey)
+        let reopened = try XCTUnwrap(UserDefaults(suiteName: suite))
+        XCTAssertEqual(AlarmSound(rawValue: reopened.string(forKey: AlarmSound.preferenceKey) ?? ""), .experimentalVibrationOnly)
+    }
+
+    func testExactCAFNamesAndAlertSoundMapping() throws {
+        XCTAssertNil(AlarmSound.systemDefault.filename)
+        XCTAssertEqual(AlarmSound.systemDefault.alertSound, .default)
+        let cases: [(AlarmSound, String)] = [(.soft, "nudge-soft.caf"), (.prominent, "nudge-prominent.caf"), (.experimentalVibrationOnly, "nudge-silent.caf")]
+        for (sound, filename) in cases {
+            XCTAssertEqual(sound.filename, filename)
+            XCTAssertEqual(sound.alertSound, .named(filename))
+            XCTAssertTrue(sound.diagnostic.contains(filename))
+            let url = try XCTUnwrap(sound.resourceURL())
+            let file = try AVAudioFile(forReading: url)
+            XCTAssertEqual(file.fileFormat.sampleRate, 44100)
+            XCTAssertEqual(file.fileFormat.channelCount, 1)
+            let duration = Double(file.length) / file.fileFormat.sampleRate
+            XCTAssertGreaterThan(duration, 0)
+            XCTAssertLessThan(duration, 30)
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+            try file.read(into: buffer)
+            let samples = try XCTUnwrap(buffer.floatChannelData)[0]
+            let peak = (0..<Int(buffer.frameLength)).map { abs(samples[$0]) }.max() ?? 0
+            if sound == .experimentalVibrationOnly { XCTAssertEqual(peak, 0) }
+            else { XCTAssertGreaterThan(peak, 0.01) }
+        }
+    }
+
+    func testIndividualSoundPersistsAndSurvivesSnoozeFailureAndRetry() async throws {
+        for sound in AlarmSound.allCases {
+            let context = try memoryContext()
+            var received: [AlarmSound] = []
+            var registered: [UUID: Date] = [:]
+            var fail = false
+            let store = ReminderStore(context: context, alarms: AlarmService(
+                schedule: { id, _, date, selectedSound in
+                    received.append(selectedSound)
+                    if fail { throw TestError.denied }
+                    registered[id] = date
+                }, cancel: { registered.removeValue(forKey: $0) }, scheduledAlarms: { registered }))
+            let date = Date.now.addingTimeInterval(600)
+            let created = await store.create(title: "Task", date: date, sound: sound)
+            XCTAssertTrue(created)
+            let reminder = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+            let fresh = ModelContext(context.container)
+            XCTAssertEqual(try fresh.fetch(FetchDescriptor<Reminder>()).first?.sound, sound)
+            fail = true
+            let failed = await store.snooze(id: reminder.id, until: date.addingTimeInterval(300))
+            XCTAssertFalse(failed)
+            XCTAssertEqual(reminder.sound, sound)
+            XCTAssertNil(reminder.completedAt)
+            fail = false
+            let retried = await store.snooze(id: reminder.id, until: date.addingTimeInterval(300))
+            XCTAssertTrue(retried)
+            XCTAssertEqual(received, [sound, sound, sound])
+            XCTAssertEqual(registered.count, 1)
+            XCTAssertEqual(reminder.soundModeID, sound.rawValue)
+            store.complete(reminder)
+            XCTAssertNotNil(reminder.completedAt)
+        }
+    }
+
+    func testVersion020StoreMigratesWithSafeSoundDefault() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(url: directory.appendingPathComponent("legacy020.store"))
+        let id = UUID()
+        let original = now
+        let next = now.addingTimeInterval(900)
+        do {
+            let old = try ModelContainer(for: Legacy020.Reminder.self, configurations: configuration)
+            let context = ModelContext(old)
+            let reminder = Legacy020.Reminder(id: id, scheduledAt: original)
+            reminder.nextAlarmAt = next
+            reminder.pendingSnoozeAt = next.addingTimeInterval(300)
+            context.insert(reminder)
+            let completed = Legacy020.Reminder(id: UUID(), scheduledAt: original)
+            completed.completedAt = now
+            context.insert(completed)
+            try context.save()
+        }
+        let upgraded = try ModelContainer(for: Reminder.self, configurations: configuration)
+        let saved = try ModelContext(upgraded).fetch(FetchDescriptor<Reminder>())
+        XCTAssertEqual(saved.count, 2)
+        let reminder = try XCTUnwrap(saved.first { $0.id == id })
+        XCTAssertEqual(reminder.alarmID, id)
+        XCTAssertEqual(reminder.title, "Legacy 0.2.0")
+        XCTAssertEqual(reminder.scheduledAt, original)
+        XCTAssertEqual(reminder.nextAlarmAt, next)
+        XCTAssertEqual(reminder.pendingSnoozeAt, next.addingTimeInterval(300))
+        XCTAssertEqual(reminder.sound, .systemDefault)
+        XCTAssertNil(reminder.soundModeID)
+        XCTAssertNil(reminder.completedAt)
+        XCTAssertEqual(saved.filter { $0.completedAt == now }.count, 1)
+    }
+
     private func memoryContext() throws -> ModelContext {
         let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         return ModelContext(container)
@@ -413,6 +524,31 @@ private enum Legacy010 {
         init(id: UUID, title: String, scheduledAt: Date) {
             self.id = id
             self.title = title
+            self.scheduledAt = scheduledAt
+            self.createdAt = scheduledAt.addingTimeInterval(-60)
+            self.alarmID = id
+            self.alarmState = .registered
+        }
+    }
+}
+
+// Frozen 0.2.0 persisted entity, including its interrupted-snooze journal.
+private enum Legacy020 {
+    @Model final class Reminder {
+        @Attribute(.unique) var id: UUID
+        var title: String
+        var scheduledAt: Date
+        var createdAt: Date
+        var nextAlarmAt: Date?
+        var pendingSnoozeAt: Date?
+        var completedAt: Date?
+        var alarmID: UUID
+        var alarmState: AlarmRegistration
+        var alarmError: String?
+
+        init(id: UUID, scheduledAt: Date) {
+            self.id = id
+            self.title = "Legacy 0.2.0"
             self.scheduledAt = scheduledAt
             self.createdAt = scheduledAt.addingTimeInterval(-60)
             self.alarmID = id

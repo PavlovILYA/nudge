@@ -3,6 +3,8 @@ import SwiftUI
 struct CreateReminderView: View {
     @Environment(\.dismiss) private var dismiss
     let store: ReminderStore
+    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = .systemDefault
+    @State private var soundOverride: AlarmSound?
     @State private var title = ""
     @State private var date = Date.now.addingTimeInterval(300)
 
@@ -11,6 +13,14 @@ struct CreateReminderView: View {
             Form {
                 TextField("Task title", text: $title, axis: .vertical)
                 DatePicker("When", selection: $date, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
+                Picker("Reminder sound", selection: $soundOverride) {
+                    Text("Use default (\(defaultSound.title))").tag(AlarmSound?.none)
+                    ForEach(AlarmSound.allCases) { sound in
+                        Text(sound.title).tag(Optional(sound))
+                    }
+                }
+                .pickerStyle(.navigationLink)
+                SoundDetails(sound: soundOverride ?? defaultSound)
                 if let error = store.errorMessage {
                     Text(error).foregroundStyle(.red)
                 }
@@ -25,7 +35,7 @@ struct CreateReminderView: View {
                     Button("Save") {
                         Task {
                             store.errorMessage = nil
-                            if await store.create(title: title, date: date) { dismiss() }
+                            if await store.create(title: title, date: date, sound: soundOverride ?? defaultSound) { dismiss() }
                         }
                     }
                     .disabled(store.isBusy || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || date <= .now)

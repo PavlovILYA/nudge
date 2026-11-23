@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 import SwiftData
 
 @MainActor
@@ -20,30 +21,33 @@ final class ReminderStore {
     }
 
     /// True means the task was saved, even when its alarm failed.
-    func create(title: String, date: Date) async -> Bool {
+    func create(title: String, date: Date, sound: AlarmSound = .systemDefault) async -> Bool {
         guard !isBusy else { return false }
         isBusy = true
         defer { isBusy = false }
         let reminder: Reminder
         do {
             reminder = try Reminder(title: title, scheduledAt: date)
+            reminder.soundModeID = sound.rawValue
             context.insert(reminder)
             // This durable ID also covers termination during authorization/scheduling.
             try saveContext(context)
         } catch {
             context.rollback()
-            errorMessage = "Could not save reminder: \(error.localizedDescription)"
+            log(error)
+            errorMessage = String(localized: "Could not save the reminder. Try again.")
             return false
         }
         do {
             try await alarms.authorize()
-            try await alarms.schedule(reminder.alarmID, reminder.title, reminder.scheduledAt)
+            try await alarms.schedule(reminder.alarmID, reminder.title, reminder.scheduledAt, reminder.sound)
             reminder.alarmState = .registered
             reminder.alarmError = nil
         } catch {
             reminder.alarmState = .failed
-            reminder.alarmError = error.localizedDescription
-            errorMessage = "Reminder saved. Alarm not confirmed: \(error.localizedDescription)"
+            reminder.alarmError = friendlyMessage(error)
+            log(error)
+            errorMessage = String(localized: "Reminder saved, but its alarm is not confirmed. Check alarm access in Settings and choose a time to retry.")
         }
         saveChanges()
         return true
@@ -72,7 +76,7 @@ final class ReminderStore {
                 pendingReminder = reminder
                 // cancel removes both an alerting alarm and its old schedule.
                 try alarms.cancel(reminder.alarmID)
-                try await alarms.schedule(reminder.alarmID, reminder.title, date)
+                try await alarms.schedule(reminder.alarmID, reminder.title, date, reminder.sound)
             }
             reminder.nextAlarmAt = date
             reminder.pendingSnoozeAt = nil
@@ -82,10 +86,11 @@ final class ReminderStore {
         } catch {
             if let reminder = pendingReminder {
                 reminder.alarmState = .failed
-                reminder.alarmError = error.localizedDescription
+                reminder.alarmError = friendlyMessage(error)
                 guard saveChanges() else { return false }
             }
-            errorMessage = "Could not snooze: \(error.localizedDescription) Check the alarm status and choose a time to retry. Task completion is unchanged."
+            log(error)
+            errorMessage = friendlyMessage(error)
             return false
         }
     }
@@ -101,8 +106,8 @@ final class ReminderStore {
         case missing, completed
         var errorDescription: String? {
             switch self {
-            case .missing: "This reminder was deleted."
-            case .completed: "This task is already completed."
+            case .missing: String(localized: "This reminder was deleted.")
+            case .completed: String(localized: "This task is already completed.")
             }
         }
     }
@@ -117,7 +122,8 @@ final class ReminderStore {
             reminder.alarmError = nil
             saveChanges()
         } catch {
-            errorMessage = "Could not cancel the alarm. Task remains incomplete. Try again. \(error.localizedDescription)"
+            log(error)
+            errorMessage = String(localized: "Could not cancel the alarm. Task remains incomplete. Try again.")
         }
     }
 
@@ -128,7 +134,8 @@ final class ReminderStore {
             context.delete(reminder)
             saveChanges()
         } catch {
-            errorMessage = "Could not cancel the alarm. Reminder kept so you can retry. \(error.localizedDescription)"
+            log(error)
+            errorMessage = String(localized: "Could not cancel the alarm. Reminder kept so you can retry.")
         }
     }
 
@@ -147,7 +154,7 @@ final class ReminderStore {
                         reminder.alarmError = nil
                     } else {
                         reminder.alarmState = .failed
-                        reminder.alarmError = "Snooze was interrupted or failed. Choose a time to retry."
+                        reminder.alarmError = String(localized: "Snooze was interrupted or failed. Choose a time to retry.")
                     }
                 } else if dates[reminder.alarmID] != nil {
                     reminder.alarmState = .registered
@@ -159,8 +166,21 @@ final class ReminderStore {
             saveChanges()
         } catch {
             // Stale registration must never be presented as a fresh confirmation.
-            errorMessage = "Could not check system alarms: \(error.localizedDescription)"
+            log(error)
+            errorMessage = String(localized: "Could not check system alarms. Reopen Nudge to retry.")
         }
+    }
+
+    private func friendlyMessage(_ error: Error) -> String {
+        if error is Reminder.ValidationError || error is SnoozeError || error is AlarmService.AlarmError {
+            return error.localizedDescription
+        }
+        return String(localized: "Could not schedule the alarm. Check alarm access in Settings and choose a time to retry. Task completion is unchanged.")
+    }
+
+    private func log(_ error: Error) {
+        Logger(subsystem: "com.pavlovilya.nudge", category: "ReminderStore")
+            .error("Operation failed: \(error.localizedDescription, privacy: .public)")
     }
 
     @discardableResult
@@ -170,7 +190,8 @@ final class ReminderStore {
             return true
         } catch {
             context.rollback()
-            errorMessage = "Could not save changes. System alarm changes may already have taken effect. Reopen Nudge to check, then retry. \(error.localizedDescription)"
+            log(error)
+            errorMessage = String(localized: "Could not save changes. The system alarm may already have changed. Reopen Nudge to check, then retry.")
             return false
         }
     }
