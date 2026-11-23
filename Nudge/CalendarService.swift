@@ -156,8 +156,8 @@ private final class CalendarClient {
 
     func remove(_ request: CalendarRequest) throws {
         guard let event = try find(request) else {
-            if request.eventID == nil && request.previousDate != nil { throw CalendarError.missing }
-            return // A previously identified, already-removed event needs no mutation.
+            // Provider ID changes and external moves are indistinguishable from deletion.
+            throw CalendarError.missing
         }
         guard event.calendar?.allowsContentModifications == true else { throw CalendarError.destination }
         do { try store.remove(event, span: .thisEvent, commit: true) }

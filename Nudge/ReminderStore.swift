@@ -55,7 +55,8 @@ final class ReminderStore {
             log(error)
             errorMessage = String(localized: "Reminder saved, but its alarm is not confirmed. Check alarm access in Settings and choose a time to retry.")
         }
-        guard saveChanges() else { return false }
+        // The initial insert is already durable. Never leave creation retrying a new UUID.
+        guard saveChanges() else { return true }
         _ = syncCalendar(reminder)
         return true
     }
@@ -131,12 +132,19 @@ final class ReminderStore {
             let metadataChanged = title != item.title || sound != item.sound
             let dates = metadataChanged || moved || item.alarmNeedsUpdate == true ? try alarms.scheduledAlarms() : registeredDates
             let existingFuture = dates[item.alarmID].flatMap { $0 > .now ? $0 : nil }
-            let target = moved ? date : (item.pendingSnoozeAt ?? existingFuture)
-            let needsAlarm = item.completedAt == nil && (moved || item.alarmNeedsUpdate == true || (metadataChanged && existingFuture != nil && item.alarmDisabled != true))
+            var target = moved ? date : (item.pendingSnoozeAt ?? existingFuture)
+            var needsAlarm = item.completedAt == nil && (moved || item.alarmNeedsUpdate == true || (metadataChanged && existingFuture != nil && item.alarmDisabled != true))
             if needsAlarm { try await alarms.authorize() }
             let current = try reminder(id: id)
             // Completion during permission acquisition must never restart its alarm.
             guard !needsAlarm || current.completedAt == nil else { throw SnoozeError.completed }
+            if needsAlarm && !moved && current.alarmNeedsUpdate != true {
+                // Native Stop can run while authorization suspends; metadata edits must not resurrect it.
+                let actual = try alarms.scheduledAlarms()[current.alarmID]
+                target = actual.flatMap { $0 > .now ? $0 : nil }
+                needsAlarm = target != nil
+                if target == nil { registeredDates.removeValue(forKey: current.alarmID) }
+            }
             if needsAlarm, let target { try Reminder.validateSnoozeDate(target) }
             current.applyEdit(title: title, date: date, sound: sound)
             current.calendarEnabled = calendarEnabled
@@ -286,19 +294,21 @@ final class ReminderStore {
         }
     }
 
-    func delete(_ reminder: Reminder) {
-        guard !isBusy else { return }
+    @discardableResult
+    func delete(_ reminder: Reminder, keepCalendarEvent: Bool = false) -> Bool {
+        guard !isBusy else { return false }
         do {
             try alarms.cancel(reminder.alarmID)
             registeredDates.removeValue(forKey: reminder.alarmID)
-            if reminder.calendarEventID != nil || reminder.calendarEventDate != nil {
+            if !keepCalendarEvent && (reminder.calendarEventID != nil || reminder.calendarEventDate != nil) {
                 try calendar.remove(calendarRequest(reminder))
             }
             context.delete(reminder)
-            saveChanges()
+            return saveChanges()
         } catch {
             log(error)
             errorMessage = String(localized: "Could not delete the task safely. Its alarm may be off; the task is kept. Check Calendar access and retry.")
+            return false
         }
     }
 

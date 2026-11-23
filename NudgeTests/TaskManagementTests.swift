@@ -290,6 +290,55 @@ final class TaskManagementTests: XCTestCase {
         XCTAssertNil(item.alarmNeedsUpdate)
     }
 
+    func testCreationFinalSaveFailureStillReportsDurableTask() async throws {
+        let context = try memory()
+        var saves = 0
+        var registrations: [UUID: Date] = [:]
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            schedule: { id, _, date, _ in registrations[id] = date }, cancel: { _ in }, scheduledAlarms: { registrations }),
+            save: { context in saves += 1; if saves == 2 { throw TestError.failed }; try context.save() })
+        let saved = await store.create(title: "Task", date: Date.now.addingTimeInterval(600))
+        XCTAssertTrue(saved, "The creation sheet must dismiss once the UUID is durably saved")
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 1)
+        XCTAssertEqual(registrations.count, 1)
+        XCTAssertNotNil(store.errorMessage)
+    }
+
+    func testNativeStopDuringEditAuthorizationDoesNotRecreateAlarm() async throws {
+        let context = try memory()
+        let date = Date.now.addingTimeInterval(600)
+        let reminder = try Reminder(title: "Before", scheduledAt: date)
+        context.insert(reminder)
+        try context.save()
+        var registrations = [reminder.id: date]
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            authorize: { registrations = [:] },
+            schedule: { _, _, _, _ in XCTFail("Native Stop must be respected") },
+            cancel: { _ in XCTFail("Do not replace an absent alarm") }, scheduledAlarms: { registrations }))
+        let saved = await store.edit(id: reminder.id, title: "After", date: date, sound: .soft, calendarEnabled: false, calendarID: nil)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(reminder.title, "After")
+        XCTAssertTrue(registrations.isEmpty)
+        XCTAssertNil(reminder.completedAt)
+        XCTAssertNil(store.activeAlarmDate(for: reminder))
+    }
+
+    func testUnfindableEventKeepsTaskUntilExplicitLocalOnlyDeletion() async throws {
+        let context = try memory()
+        var removals = 0
+        let store = ReminderStore(context: context, alarms: fakeAlarms(), calendar: CalendarService(
+            hasAccess: { true }, upsert: { _ in CalendarIdentity(eventID: "old-id", externalID: "old-external", calendarID: "calendar") },
+            remove: { _ in removals += 1; throw CalendarError.missing }))
+        _ = await store.create(title: "Task", date: Date.now.addingTimeInterval(600), calendarEnabled: true, calendarID: "calendar")
+        let reminder = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertFalse(store.delete(reminder))
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 1)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertTrue(store.delete(reminder, keepCalendarEvent: true))
+        XCTAssertEqual(removals, 1)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 0)
+    }
+
     private func memory() throws -> ModelContext {
         ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
     }

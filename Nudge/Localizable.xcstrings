@@ -1856,6 +1856,86 @@
           }
         }
       }
+    },
+    "Delete task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить задачу"
+          }
+        }
+      }
+    },
+    "Delete task?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete task?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить задачу?"
+          }
+        }
+      }
+    },
+    "Delete task and linked event": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete task and linked event"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить задачу и связанное событие"
+          }
+        }
+      }
+    },
+    "Delete task only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete task only"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить только задачу"
+          }
+        }
+      }
+    },
+    "The alarm is cancelled in either case. Deleting only the task leaves Calendar unchanged, even if the linked event cannot be found.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The alarm is cancelled in either case. Deleting only the task leaves Calendar unchanged, even if the linked event cannot be found."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В обоих случаях сигнал отменяется. Удаление только задачи не меняет календарь, даже если связанное событие не удалось найти."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

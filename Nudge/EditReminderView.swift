@@ -6,6 +6,7 @@ struct EditReminderView: View {
     let store: ReminderStore
     let onSnooze: () -> Void
     @AppStorage(CalendarService.destinationKey) private var destinationID = ""
+    @State private var confirmingDelete = false
     @State private var title: String
     @State private var date: Date
     @State private var sound: AlarmSound
@@ -51,6 +52,9 @@ struct EditReminderView: View {
                 } else {
                     Label("Completed", systemImage: "checkmark.circle")
                 }
+                Section {
+                    Button("Delete task", role: .destructive) { confirmingDelete = true }
+                }
                 if let error = store.errorMessage { Text(error).foregroundStyle(.red) }
                 if store.isBusy { ProgressView("Saving and scheduling…") }
             }
@@ -66,6 +70,19 @@ struct EditReminderView: View {
                         }
                     }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+            }
+            .confirmationDialog("Delete task?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                Button("Delete task and linked event", role: .destructive) {
+                    if store.delete(reminder) { dismiss() }
+                }
+                if reminder.calendarEventID != nil || reminder.calendarEventDate != nil {
+                    Button("Delete task only", role: .destructive) {
+                        if store.delete(reminder, keepCalendarEvent: true) { dismiss() }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The alarm is cancelled in either case. Deleting only the task leaves Calendar unchanged, even if the linked event cannot be found.")
             }
             .disabled(store.isBusy)
             .interactiveDismissDisabled(store.isBusy)

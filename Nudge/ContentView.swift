@@ -71,7 +71,7 @@ struct ContentView: View {
                                         }
                                         if reminder.alarmState == .failed { Text("Alarm needs attention").foregroundStyle(.orange) }
                                         if reminder.calendarEnabled == true {
-                                            Text(reminder.calendarError != nil ? String(localized: "Calendar needs attention") : String(localized: "Calendar linked"))
+                                            Text(reminder.calendarError != nil ? String(localized: "Calendar needs attention") : (reminder.calendarEventID == nil || reminder.calendarNeedsSync == true ? String(localized: "Calendar update pending") : String(localized: "Calendar linked")))
                                                 .font(.caption).foregroundStyle(reminder.calendarError != nil ? .orange : .secondary)
                                         }
                                     }
