@@ -20,7 +20,7 @@ struct AlarmService {
             let manager = AlarmManager.shared
             try Reminder.validateSnoozeDate(date)
             if sound.filename != nil, sound.resourceURL() == nil { throw AlarmError.missingSound }
-            let chooseTime = AlarmButton(text: "Choose Time", textColor: .white, systemImageName: "clock.arrow.circlepath")
+            let chooseTime = AlarmButton(text: "Snooze", textColor: .white, systemImageName: "clock.arrow.circlepath")
             let alert: AlarmPresentation.Alert
             if #available(iOS 26.1, *) {
                 // Modern iOS owns the stop control and may render the custom action as Open.

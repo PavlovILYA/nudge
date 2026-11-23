@@ -236,7 +236,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Готово"
+            "value": "Выполнено"
           }
         }
       }
@@ -1101,6 +1101,758 @@
           "stringUnit": {
             "state": "translated",
             "value": "ОК"
+          }
+        }
+      }
+    },
+    "Alarms": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarms"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигналы"
+          }
+        }
+      }
+    },
+    "Tasks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tasks"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задачи"
+          }
+        }
+      }
+    },
+    "History": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "History"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "История"
+          }
+        }
+      }
+    },
+    "Section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Section"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Раздел"
+          }
+        }
+      }
+    },
+    "Nothing here yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing here yet"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Здесь пока ничего нет"
+          }
+        }
+      }
+    },
+    "Alarm: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm: %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал: %@"
+          }
+        }
+      }
+    },
+    "Alarm is off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm is off"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал отключён"
+          }
+        }
+      }
+    },
+    "No upcoming alarm confirmed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No upcoming alarm confirmed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будущий сигнал не подтверждён"
+          }
+        }
+      }
+    },
+    "Alarm needs attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm needs attention"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал требует внимания"
+          }
+        }
+      }
+    },
+    "Calendar needs attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar needs attention"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Календарь требует внимания"
+          }
+        }
+      }
+    },
+    "Calendar linked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar linked"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Есть событие в календаре"
+          }
+        }
+      }
+    },
+    "Snooze": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить"
+          }
+        }
+      }
+    },
+    "Edit task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить задачу"
+          }
+        }
+      }
+    },
+    "Move task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перенести задачу"
+          }
+        }
+      }
+    },
+    "Turn off alarm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn off alarm"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключить сигнал"
+          }
+        }
+      }
+    },
+    "Original task time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original task time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исходный срок задачи"
+          }
+        }
+      }
+    },
+    "Changing the task time moves its deadline and Calendar event, and resets Snooze. A moved task needs a future date.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changing the task time moves its deadline and Calendar event, and resets Snooze. A moved task needs a future date."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение срока переносит задачу и событие в календаре, сбрасывая откладывание. Новый срок должен быть в будущем."
+          }
+        }
+      }
+    },
+    "Task actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действия с задачей"
+          }
+        }
+      }
+    },
+    "Actions apply to the saved task. Use Save to apply changes in this form.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions apply to the saved task. Use Save to apply changes in this form."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действия относятся к сохранённой задаче. Для применения изменений в форме нажмите «Сохранить»."
+          }
+        }
+      }
+    },
+    "Alarm is off. The task is not completed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm is off. The task is not completed."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигнал отключён. Задача остаётся невыполненной."
+          }
+        }
+      }
+    },
+    "Could not turn off the alarm. The task is unchanged. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not turn off the alarm. The task is unchanged. Try again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось отключить сигнал. Задача не изменилась. Попробуйте ещё раз."
+          }
+        }
+      }
+    },
+    "The task was saved, but its alarm needs an update. Choose an alarm time to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The task was saved, but its alarm needs an update. Choose an alarm time to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача сохранена, но сигнал требует обновления. Выберите время сигнала для повтора."
+          }
+        }
+      }
+    },
+    "Could not delete the task safely. Its alarm may be off; the task is kept. Check Calendar access and retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not delete the task safely. Its alarm may be off; the task is kept. Check Calendar access and retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно удалить задачу. Сигнал уже мог отключиться; задача сохранена. Проверьте доступ к календарю и повторите."
+          }
+        }
+      }
+    },
+    "Managed by Nudge. Edit this task in Nudge.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Managed by Nudge. Edit this task in Nudge."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связано с Nudge. Изменяйте задачу в приложении Nudge."
+          }
+        }
+      }
+    },
+    "Calendar access is unavailable. Connect Calendar in Settings or allow full access in iOS Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar access is unavailable. Connect Calendar in Settings or allow full access in iOS Settings."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет доступа к календарю. Подключите его в настройках Nudge или разрешите полный доступ в настройках iOS."
+          }
+        }
+      }
+    },
+    "Choose a writable calendar in Settings. A separate Nudge calendar may not be supported by this account.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a writable calendar in Settings. A separate Nudge calendar may not be supported by this account."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите доступный для записи календарь в настройках. Эта учётная запись может не поддерживать отдельный календарь Nudge."
+          }
+        }
+      }
+    },
+    "The linked event could not be found safely. It may have been deleted or moved. No new copy was created. Check Calendar and retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The linked event could not be found safely. It may have been deleted or moved. No new copy was created. Check Calendar and retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связанное событие не удалось надёжно найти. Возможно, оно удалено или перемещено. Новая копия не создана. Проверьте календарь и повторите."
+          }
+        }
+      }
+    },
+    "Several events match this task or its link was changed. Nothing was modified. Check Calendar before retrying.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Several events match this task or its link was changed. Nothing was modified. Check Calendar before retrying."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Найдено несколько событий задачи или её ссылка изменилась. Ничего не изменено. Проверьте календарь перед повтором."
+          }
+        }
+      }
+    },
+    "Calendar could not be updated. Your task and its alarm are kept. Retry Calendar sync.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar could not be updated. Your task and its alarm are kept. Retry Calendar sync."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось обновить календарь. Задача и её сигнал сохранены. Повторите синхронизацию."
+          }
+        }
+      }
+    },
+    "The reminder link is invalid.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The reminder link is invalid."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Некорректная ссылка на задачу."
+          }
+        }
+      }
+    },
+    "Connect Apple Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Apple Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключить Apple Calendar"
+          }
+        }
+      }
+    },
+    "Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Календарь"
+          }
+        }
+      }
+    },
+    "Choose a calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите календарь"
+          }
+        }
+      }
+    },
+    "Create or select Nudge calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create or select Nudge calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать или выбрать календарь Nudge"
+          }
+        }
+      }
+    },
+    "Add new tasks to Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add new tasks to Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавлять новые задачи в календарь"
+          }
+        }
+      }
+    },
+    "Apple Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Calendar"
+          }
+        }
+      }
+    },
+    "Calendar access is requested only here. New events last 15 minutes and have no extra alerts. Turning this default off leaves existing tasks and events unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar access is requested only here. New events last 15 minutes and have no extra alerts. Turning this default off leaves existing tasks and events unchanged."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ запрашивается только здесь. Новые события длятся 15 минут и не имеют дополнительных уведомлений. Отключение общего выбора не меняет созданные задачи и события."
+          }
+        }
+      }
+    },
+    "Add to Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить в календарь"
+          }
+        }
+      }
+    },
+    "Connect Calendar and choose a destination in Settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Calendar and choose a destination in Settings."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключите календарь и выберите место для событий в настройках."
+          }
+        }
+      }
+    },
+    "Turning the link off keeps any existing event. Snooze never moves the event; changing the task date does.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turning the link off keeps any existing event. Snooze never moves the event; changing the task date does."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключение связи сохраняет прежнее событие. Откладывание сигнала не переносит событие; изменение срока задачи — переносит."
+          }
+        }
+      }
+    },
+    "Linked to Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linked to Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связано с календарём"
+          }
+        }
+      }
+    },
+    "Calendar update pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar update pending"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ожидается обновление календаря"
+          }
+        }
+      }
+    },
+    "Retry Calendar sync": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry Calendar sync"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить синхронизацию календаря"
+          }
+        }
+      }
+    },
+    "Calendar link is off. The previous event is kept until the task is deleted.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar link is off. The previous event is kept until the task is deleted."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Связь с календарём отключена. Прежнее событие сохранится до удаления задачи."
+          }
+        }
+      }
+    },
+    "Got it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Понятно"
+          }
+        }
+      }
+    },
+    "Silent CAF worked with vibration on a tested iPhone 13. Other devices and settings may differ; silence and vibration are not guaranteed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silent CAF worked with vibration on a tested iPhone 13. Other devices and settings may differ; silence and vibration are not guaranteed."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На проверенном iPhone 13 бесшумный CAF сработал с вибрацией. На других устройствах и при иных настройках результат может отличаться; тишина и вибрация не гарантированы."
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
           }
         }
       }

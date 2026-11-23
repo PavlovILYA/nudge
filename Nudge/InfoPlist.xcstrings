@@ -16,6 +16,22 @@
           }
         }
       }
+    },
+    "NSCalendarsFullAccessUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge needs calendar access to find, update and remove the events linked to your tasks."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge нужен доступ к календарю, чтобы находить, обновлять и удалять события, связанные с вашими задачами."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

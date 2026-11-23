@@ -4,7 +4,7 @@ import Observation
 
 /// LiveActivityIntent executes in the app process, including on a cold launch.
 struct ChooseTimeIntent: LiveActivityIntent {
-    static let title: LocalizedStringResource = "Choose Time"
+    static let title: LocalizedStringResource = "Snooze"
     static let supportedModes: IntentModes = .foreground
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     static let isDiscoverable = false

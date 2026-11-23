@@ -128,7 +128,7 @@ final class TaskManagementTests: XCTestCase {
         let context = try memory()
         var registrations: [UUID: Date] = [:]
         let store = ReminderStore(context: context, alarms: AlarmService(
-            schedule: { registrations[$0] = $2 }, cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations }),
+            schedule: { id, _, date, _ in registrations[id] = date }, cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations }),
             calendar: CalendarService(hasAccess: { false }, upsert: { _ in XCTFail("No permission"); throw TestError.failed }, remove: { _ in throw TestError.failed }))
         let created = await store.create(title: "Task", date: Date.now.addingTimeInterval(600), calendarEnabled: true, calendarID: "calendar")
         XCTAssertTrue(created)

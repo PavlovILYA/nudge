@@ -5,6 +5,7 @@ struct SnoozeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let reminder: Reminder
     let store: ReminderStore
+    var onEdit: () -> Void = {}
     @State private var selectedInterval: SnoozeInterval?
     @State private var date = Date.now.addingTimeInterval(300)
     @State private var choosingDate = false
@@ -61,10 +62,8 @@ struct SnoozeView: View {
                             .frame(minHeight: 44)
                             .disabled(date <= .now)
                     }
-                    if reminder.sound == .experimentalVibrationOnly {
-                        Label(AlarmSound.experimentalWarning, systemImage: "exclamationmark.triangle")
-                            .font(.footnote).foregroundStyle(.orange)
-                    }
+                    Button("Edit task", systemImage: "pencil", action: onEdit)
+                        .frame(minHeight: 44)
                     if let error = store.errorMessage {
                         Text(error).foregroundStyle(.red).accessibilityAddTraits(.updatesFrequently)
                     }
@@ -72,7 +71,7 @@ struct SnoozeView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Choose Time")
+            .navigationTitle("Snooze")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
