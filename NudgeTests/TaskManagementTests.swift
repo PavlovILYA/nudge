@@ -304,7 +304,7 @@ final class TaskManagementTests: XCTestCase {
         XCTAssertNotNil(store.errorMessage)
     }
 
-    func testNativeStopDuringEditAuthorizationDoesNotRecreateAlarm() async throws {
+    func testMissingRegistrationDuringEditAuthorizationDoesNotRecreateAlarm() async throws {
         let context = try memory()
         let date = Date.now.addingTimeInterval(600)
         let reminder = try Reminder(title: "Before", scheduledAt: date)
@@ -313,7 +313,7 @@ final class TaskManagementTests: XCTestCase {
         var registrations = [reminder.id: date]
         let store = ReminderStore(context: context, alarms: AlarmService(
             authorize: { registrations = [:] },
-            schedule: { _, _, _, _ in XCTFail("Native Stop must be respected") },
+            schedule: { _, _, _, _ in XCTFail("An absent alarm must not be recreated") },
             cancel: { _ in XCTFail("Do not replace an absent alarm") }, scheduledAlarms: { registrations }))
         let saved = await store.edit(id: reminder.id, title: "After", date: date, sound: .soft, calendarEnabled: false, calendarID: nil)
         XCTAssertTrue(saved)
@@ -586,6 +586,22 @@ final class TaskFirstTests: XCTestCase {
         XCTAssertEqual(task.scheduledAt, past)
         XCTAssertEqual(task.nextAlarmAt, future)
         XCTAssertEqual(registrations[task.alarmID], future)
+    }
+
+    func testPendingCancellationKeepsDesiredAlarmOffDuringMetadataEdit() async throws {
+        let context = try memory()
+        let date = Date.now.addingTimeInterval(600)
+        let task = try Reminder(title: "Before", scheduledAt: date, alarmEnabled: false)
+        task.alarmNeedsUpdate = true
+        context.insert(task); try context.save()
+        XCTAssertFalse(task.alarmEnabled)
+        var registrations = [task.alarmID: date]
+        let store = ReminderStore(context: context, alarms: AlarmService(schedule: { _, _, _, _ in XCTFail("Off intent must survive editing") },
+            cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations }))
+        let saved = await store.edit(id: task.id, title: "After", date: date, sound: task.sound, calendarEnabled: false, calendarID: nil, alarmEnabled: task.alarmEnabled)
+        XCTAssertTrue(saved)
+        XCTAssertTrue(registrations.isEmpty)
+        XCTAssertFalse(task.alarmEnabled)
     }
 
 }

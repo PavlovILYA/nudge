@@ -50,6 +50,8 @@ final class Reminder {
 
     var sound: AlarmSound { AlarmSound(rawValue: soundModeID ?? "") ?? .systemDefault }
 
+    var alarmEnabled: Bool { completedAt == nil && alarmDisabled != true }
+
     var effectiveAlarmAt: Date? { nextAlarmAt ?? scheduledAt }
 
     static func validateSnoozeDate(_ date: Date, now: Date = .now) throws {

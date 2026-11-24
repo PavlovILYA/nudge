@@ -1,3 +1,5 @@
+> Исторический документ. Правила Stop, опциональной даты и главного экрана заменены текущей моделью: [Task-first QA](task-first-qa.md).
+
 # Voice capture — physical acceptance, not yet performed
 
 Target: iPhone 13 / iOS 27.2.1. Record version 0.5.0 (6), commit, signing method/effective app and extension IDs, language/time zone, network state, recognizer name, installed resources and actual outcomes. Simulator/CI and a supported locale list do not prove offline Russian recognition. Keep a copy of your 0.4.0 task dates/IDs/sound/Calendar links before upgrading without uninstalling.

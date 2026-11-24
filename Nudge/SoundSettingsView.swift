@@ -35,28 +35,34 @@ struct SoundDetails: View {
     @Environment(\.scenePhase) private var scenePhase
     let sound: AlarmSound
     var alwaysWarn = false
+    var compact = false
     @AppStorage("experimentalSoundAcknowledged") private var acknowledged = false
     @State private var preview = SoundPreview()
 
     var body: some View {
-        Section {
-            if sound == .experimentalVibrationOnly && (alwaysWarn || !acknowledged) {
-                Label(AlarmSound.experimentalWarning, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                if !acknowledged { Button("Got it") { acknowledged = true } }
-            }
-            if sound.canPreview {
-                Button("Preview", systemImage: "play.circle") { preview.play(sound) }
-                    .frame(minHeight: 44)
-            }
-            if let error = preview.errorMessage { Text(error).foregroundStyle(.red) }
-        } footer: {
-            if sound.canPreview {
-                Text("Preview plays only here, respects Silent Mode and volume, and does not test AlarmKit playback.")
+        Group {
+            if compact { fields }
+            else {
+                Section { fields } footer: {
+                    if sound.canPreview {
+                        Text("Preview plays only here, respects Silent Mode and volume, and does not test AlarmKit playback.")
+                    }
+                }
             }
         }
         .onChange(of: sound) { _, _ in preview.stop(); preview.errorMessage = nil }
         .onChange(of: scenePhase) { _, phase in if phase != .active { preview.stop() } }
         .onDisappear { preview.stop() }
+    }
+
+    @ViewBuilder private var fields: some View {
+        if sound == .experimentalVibrationOnly && (compact || alwaysWarn || !acknowledged) {
+            Text(AlarmSound.experimentalWarning).font(.footnote).foregroundStyle(.secondary)
+            if !compact && !acknowledged { Button("Got it") { acknowledged = true } }
+        }
+        if sound.canPreview {
+            Button("Preview", systemImage: "play.circle") { preview.play(sound) }.frame(minHeight: 44)
+        }
+        if let error = preview.errorMessage { Text(error).foregroundStyle(.red) }
     }
 }

@@ -6,13 +6,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New reminder"
+            "value": "New task"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Новое напоминание"
+            "value": "Новая задача"
           }
         }
       }
@@ -22,13 +22,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Nudge to record a reminder."
+            "value": "Open Nudge to record a task."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Откройте Nudge для голосового ввода напоминания."
+            "value": "Откройте Nudge, чтобы записать задачу."
           }
         }
       }

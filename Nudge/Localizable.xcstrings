@@ -236,7 +236,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выполнено"
+            "value": "Готово"
           }
         }
       }
@@ -1340,7 +1340,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отключить сигнал"
+            "value": "Отключить будильник"
           }
         }
       }
@@ -1958,13 +1958,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice reminder"
+            "value": "Voice task"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Голосовое напоминание"
+            "value": "Создание голосом"
           }
         }
       }
@@ -1974,13 +1974,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Record reminder"
+            "value": "Record task"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Записать напоминание"
+            "value": "Записать задачу"
           }
         }
       }
@@ -2204,7 +2204,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Записать ещё раз"
+            "value": "Записать заново"
           }
         }
       }
@@ -2653,6 +2653,294 @@
           "stringUnit": {
             "state": "translated",
             "value": "Настройки распознавания"
+          }
+        }
+      }
+    },
+    "Actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действия"
+          }
+        }
+      }
+    },
+    "Alarm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильник"
+          }
+        }
+      }
+    },
+    "Enable alarm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable alarm"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить будильник"
+          }
+        }
+      }
+    },
+    "Change time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить время"
+          }
+        }
+      }
+    },
+    "Completed tasks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed tasks"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполненные"
+          }
+        }
+      }
+    },
+    "Options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Options"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Меню"
+          }
+        }
+      }
+    },
+    "New task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая задача"
+          }
+        }
+      }
+    },
+    "Add date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add date"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить дату и время"
+          }
+        }
+      }
+    },
+    "Remove date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove date"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать дату"
+          }
+        }
+      }
+    },
+    "Correct text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct text"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправить текст"
+          }
+        }
+      }
+    },
+    "Task saved, but its alarm could not be enabled. Open the task to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task saved, but its alarm could not be enabled. Open the task to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача сохранена, но будильник не удалось включить. Откройте задачу и повторите попытку."
+          }
+        }
+      }
+    },
+    "Alarm cancellation is pending. Open Nudge to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm cancellation is pending. Open Nudge to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильник пока не удалось отключить. Откройте Nudge для повторной попытки."
+          }
+        }
+      }
+    },
+    "Task completed. Its alarm could not be cancelled yet; open Nudge to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task completed. Its alarm could not be cancelled yet; open Nudge to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача выполнена, но будильник пока не удалось отменить. Откройте Nudge для повторной попытки."
+          }
+        }
+      }
+    },
+    "Task completion could not finish. Open Nudge to check and retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task completion could not finish. Open Nudge to check and retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить операцию. Откройте Nudge, проверьте задачу и повторите попытку."
+          }
+        }
+      }
+    },
+    "The alarm was turned off.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The alarm was turned off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильник отключён."
+          }
+        }
+      }
+    },
+    "Changing the task time updates its Calendar event. Snooze changes only the next alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changing the task time updates its Calendar event. Snooze changes only the next alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение срока задачи обновляет событие Календаря. Отложить — изменить только следующий сигнал."
+          }
+        }
+      }
+    },
+    "Add a date to update Calendar. Existing events are kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a date to update Calendar. Existing events are kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте дату для обновления Календаря. Существующее событие сохранено."
+          }
+        }
+      }
+    },
+    "Create task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать задачу"
           }
         }
       }

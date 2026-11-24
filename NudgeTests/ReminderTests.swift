@@ -21,7 +21,7 @@ final class ReminderTests: XCTestCase {
         let reminder = try Reminder(title: "Task", scheduledAt: now.addingTimeInterval(60), now: now)
         XCTAssertEqual(reminder.state(at: now), .pending)
         XCTAssertEqual(reminder.state(at: now.addingTimeInterval(60)), .overdue)
-        reminder.alarmState = .absent // A stopped/missing alarm never completes its task.
+        reminder.alarmState = .absent // A missing registration alone does not prove completion.
         XCTAssertNil(reminder.completedAt)
         XCTAssertEqual(reminder.state(at: now.addingTimeInterval(120)), .overdue)
         reminder.completedAt = now.addingTimeInterval(120)

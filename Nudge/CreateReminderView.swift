@@ -17,15 +17,14 @@ struct CreateReminderView: View {
             Form {
                 TextField("Task title", text: $title, axis: .vertical)
                 TaskScheduleFields(date: $date, alarmEnabled: $alarmEnabled)
-                Picker("Reminder sound", selection: $soundOverride) {
-                    Text("Use default (\(defaultSound.title))").tag(AlarmSound?.none)
-                    ForEach(AlarmSound.allCases) { sound in
-                        Text(sound.title).tag(Optional(sound))
+                DisclosureGroup("Sound and Calendar") {
+                    Picker("Reminder sound", selection: $soundOverride) {
+                        Text("Use default (\(defaultSound.title))").tag(AlarmSound?.none)
+                        ForEach(AlarmSound.allCases) { sound in Text(sound.title).tag(Optional(sound)) }
                     }
+                    SoundDetails(sound: soundOverride ?? defaultSound, compact: true)
+                    CalendarTaskToggle(enabled: $calendarEnabled, hasExistingLink: false, compact: true)
                 }
-                .pickerStyle(.navigationLink)
-                SoundDetails(sound: soundOverride ?? defaultSound)
-                CalendarTaskToggle(enabled: $calendarEnabled, hasExistingLink: false)
                 if let error = store.errorMessage {
                     Text(error).foregroundStyle(.red)
                 }

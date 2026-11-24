@@ -1,3 +1,5 @@
+> Исторический документ. Правила Stop, опциональной даты и главного экрана заменены текущей моделью: [Task-first QA](task-first-qa.md).
+
 # Voice callback isolation — 0.5.0 (6)
 
 ## Evidence and fix

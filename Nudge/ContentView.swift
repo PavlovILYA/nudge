@@ -11,101 +11,60 @@ struct ContentView: View {
     @State private var launchRequest = AppLaunchRequest.shared
     @State private var confirmingSwitch = false
     @State private var pendingExternal = false
-    @State private var section = TaskSection.tasks
+    @State private var showCompleted = false
     @State private var sheet: TaskSheet?
     @State private var pendingSheet: TaskSheet?
 
-    private enum TaskSection: String, CaseIterable {
-        case alarms, tasks, history
-        var title: String {
-            switch self {
-            case .alarms: String(localized: "Alarms")
-            case .tasks: String(localized: "Tasks")
-            case .history: String(localized: "History")
-            }
-        }
-    }
     private enum TaskSheet: Identifiable, Equatable {
-        case create, settings, voice, edit(UUID), snooze(UUID)
+        case create, settings, voice, edit(UUID), enableAlarm(UUID), snooze(UUID)
         var id: String { String(describing: self) }
     }
 
     init(context: ModelContext) { _store = State(initialValue: ReminderStore(context: context)) }
 
-    private func visible(at now: Date) -> [Reminder] {
-        reminders.filter {
-            switch section {
-            case .alarms: store.activeAlarmDate(for: $0, at: now) != nil
-            case .tasks: $0.completedAt == nil
-            case .history: $0.completedAt != nil
-            }
-        }
+    private var visible: [Reminder] {
+        reminders.filter { ($0.completedAt != nil) == showCompleted }
     }
 
     var body: some View {
         NavigationStack {
             TimelineView(.periodic(from: .now, by: 30)) { timeline in
                 List {
-                    Picker("Section", selection: $section) {
-                        ForEach(TaskSection.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }.pickerStyle(.segmented)
-                    if visible(at: timeline.date).isEmpty {
-                        Text("Nothing here yet").foregroundStyle(.secondary)
-                    }
-                    ForEach(visible(at: timeline.date)) { reminder in
-                        HStack(alignment: .top) {
-                            Button { present(.edit(reminder.id)) } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(reminder.title).font(.headline)
-                                    Text(reminder.sound.title).font(.caption).foregroundStyle(.secondary)
-                                    if let date = reminder.scheduledAt { Text(date, format: .dateTime.month().day().year().hour().minute()).font(.subheadline) }
-                                    if reminder.completedAt != nil {
-                                        Label("Completed", systemImage: "checkmark.circle")
-                                    } else {
-                                        if let date = store.activeAlarmDate(for: reminder, at: timeline.date) {
-                                            Text("Alarm: \(date.formatted(date: .abbreviated, time: .shortened))").foregroundStyle(.tint)
-                                        } else if reminder.alarmDisabled == true {
-                                            Text("Alarm is off").foregroundStyle(.secondary)
-                                        } else {
-                                            Text("No upcoming alarm confirmed").foregroundStyle(.secondary)
-                                        }
-                                        if reminder.state(at: timeline.date) == .overdue {
-                                            Label("Overdue", systemImage: "exclamationmark.circle").foregroundStyle(.red)
-                                        }
-                                        if reminder.alarmState == .failed { Text("Alarm needs attention").foregroundStyle(.orange) }
-                                        if reminder.calendarEnabled == true {
-                                            Text(reminder.calendarError != nil ? String(localized: "Calendar needs attention") : (reminder.calendarEventID == nil || reminder.calendarNeedsSync == true ? String(localized: "Calendar update pending") : String(localized: "Calendar linked")))
-                                                .font(.caption).foregroundStyle(reminder.calendarError != nil ? .orange : .secondary)
-                                        }
+                    if visible.isEmpty { Text("Nothing here yet").foregroundStyle(.secondary) }
+                    ForEach(visible) { reminder in
+                        taskRow(reminder, at: timeline.date)
+                            .contextMenu {
+                                Button("Edit task", systemImage: "pencil") { present(.edit(reminder.id)) }
+                                if reminder.completedAt == nil {
+                                    Button("Done", systemImage: "checkmark.circle") { store.complete(reminder) }
+                                    Button("Change time", systemImage: "calendar") { present(.edit(reminder.id)) }
+                                    if store.isAlerting(reminder) {
+                                        Button("Actions", systemImage: "ellipsis.circle") { present(.snooze(reminder.id)) }
                                     }
-                                }.frame(maxWidth: .infinity, alignment: .leading)
-                            }.buttonStyle(.plain)
-                            if reminder.completedAt == nil {
-                                Button("Snooze", systemImage: "clock.arrow.circlepath") { present(.snooze(reminder.id)) }
-                                    .labelStyle(.iconOnly).buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44)
+                                    if !hasSignal(reminder) {
+                                        Button("Enable alarm", systemImage: "alarm") { toggleAlarm(reminder) }
+                                    } else {
+                                        Button("Turn off alarm", systemImage: "alarm.slash") { store.disableAlarm(reminder) }
+                                    }
+                                }
+                                Button("Delete", role: .destructive) { store.delete(reminder) }
                             }
-                        }
-                        .contextMenu {
-                            Button("Edit task", systemImage: "pencil") { present(.edit(reminder.id)) }
-                            if reminder.completedAt == nil {
-                                Button("Done", systemImage: "checkmark.circle") { store.complete(reminder) }
-                                Button("Snooze", systemImage: "clock.arrow.circlepath") { present(.snooze(reminder.id)) }
-                                Button("Turn off alarm", systemImage: "alarm.slash") { store.disableAlarm(reminder) }
-                                Button("Move task", systemImage: "calendar") { present(.edit(reminder.id)) }
-                            }
-                            Button("Delete", role: .destructive) { store.delete(reminder) }
-                        }
-                        .swipeActions { Button("Delete", role: .destructive) { store.delete(reminder) } }
+                            .swipeActions { Button("Delete", role: .destructive) { store.delete(reminder) } }
                     }
                 }
             }
-            .navigationTitle("Nudge")
+            .navigationTitle(showCompleted ? String(localized: "Completed tasks") : String(localized: "Tasks"))
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Settings", systemImage: "gearshape") { present(.settings) } }
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        Toggle("Completed tasks", isOn: $showCompleted)
+                        Button("Settings", systemImage: "gearshape") { present(.settings) }
+                    } label: { Label("Options", systemImage: "ellipsis.circle") }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Voice reminder", systemImage: "mic") { present(.voice) }
                 }
-                ToolbarItem(placement: .primaryAction) { Button("Create reminder", systemImage: "plus") { present(.create) } }
+                ToolbarItem(placement: .primaryAction) { Button("Create task", systemImage: "plus") { present(.create) } }
             }
             .disabled(store.isBusy)
             .sheet(item: $sheet, onDismiss: { confirmingSwitch = false; consumePending() }) { destination in
@@ -114,6 +73,10 @@ struct ContentView: View {
                 case .create: CreateReminderView(store: store)
                 case .settings: SoundSettingsView()
                 case .voice: VoiceCaptureView(store: store) { present(.edit($0)) }
+                case .enableAlarm(let id):
+                    if let reminder = try? store.incompleteReminder(id: id) {
+                        EditReminderView(reminder: reminder, store: store, enableAlarmOnOpen: true) { present(.snooze(id)) }
+                    }
                 case .edit(let id):
                     if let reminder = try? store.reminder(id: id) {
                         EditReminderView(reminder: reminder, store: store) { present(.snooze(id)) }
@@ -134,16 +97,21 @@ struct ContentView: View {
                 Button("OK") { store.errorMessage = nil }
             } message: { Text(store.errorMessage ?? "") }
             .onOpenURL { handleURL($0) }
+            .onChange(of: reminders.filter { $0.completedAt != nil }.map(\.id)) { _, completed in
+                if case .snooze(let id) = sheet, completed.contains(id) { sheet = nil }
+            }
             .onChange(of: launchRequest.url) { _, _ in consumeLaunchRequest() }
             .onChange(of: snoozeRequest.reminderID) { _, _ in consumeAlarmRequest() }
-            .onChange(of: store.isBusy) { _, busy in if !busy { consumePending() } }
-            .onChange(of: scenePhase) { _, phase in if phase == .active { store.refresh(); store.refreshCalendar() } }
+            .onChange(of: store.isBusy) { _, busy in if !busy { store.refresh(); consumePending() } }
+            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { store.refresh(); store.refreshCalendar(); await store.upgradeAlarmActions(); store.refresh() } } }
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged).receive(on: RunLoop.main)) { _ in
                 store.refreshCalendar()
             }
             .task {
                 store.refresh()
                 store.refreshCalendar()
+                await store.upgradeAlarmActions()
+                store.refresh()
                 consumeAlarmRequest()
                 consumeLaunchRequest()
                 for await _ in AlarmManager.shared.alarmUpdates {
@@ -152,6 +120,53 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func taskRow(_ reminder: Reminder, at now: Date) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Button { store.complete(reminder) } label: {
+                Image(systemName: reminder.completedAt == nil ? "circle" : "checkmark.circle.fill")
+                    .font(.title2).frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless).disabled(reminder.completedAt != nil)
+            .accessibilityLabel("Done")
+            Button { present(.edit(reminder.id)) } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(reminder.title).font(.headline)
+                    if let date = reminder.scheduledAt {
+                        Text(date, format: .dateTime.month().day().hour().minute()).font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    if reminder.state(at: now) == .overdue {
+                        Text("Overdue").font(.caption).foregroundStyle(.orange)
+                    }
+                    if let date = store.activeAlarmDate(for: reminder, at: now), date != reminder.scheduledAt {
+                        Text("Alarm: \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.tint)
+                    }
+                    if reminder.alarmError != nil || reminder.alarmState == .failed { Text("Alarm needs attention").font(.caption).foregroundStyle(.orange) }
+                    if reminder.calendarError != nil { Text("Calendar needs attention").font(.caption).foregroundStyle(.orange) }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }.buttonStyle(.plain)
+            if reminder.completedAt == nil {
+                Button { toggleAlarm(reminder) } label: {
+                    Image(systemName: hasSignal(reminder) ? "alarm" : "alarm.slash")
+                        .frame(width: 44, height: 44)
+                        .foregroundStyle(reminder.alarmError != nil ? Color.orange : (hasSignal(reminder) ? Color.accentColor : Color.secondary))
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(hasSignal(reminder) ? Text("Turn off alarm") : Text("Enable alarm"))
+            }
+        }
+    }
+
+    private func hasSignal(_ reminder: Reminder) -> Bool {
+        store.activeAlarmDate(for: reminder) != nil || store.isAlerting(reminder)
+    }
+
+    private func toggleAlarm(_ reminder: Reminder) {
+        if hasSignal(reminder) { store.disableAlarm(reminder) }
+        else if let date = reminder.scheduledAt, date > .now {
+            Task { _ = await store.enableAlarm(id: reminder.id) }
+        } else { present(.enableAlarm(reminder.id)) }
     }
 
     private func consumeAlarmRequest() {
@@ -191,7 +206,7 @@ struct ContentView: View {
         do {
             switch target {
             case .edit(let id): _ = try store.reminder(id: id)
-            case .snooze(let id): _ = try store.incompleteReminder(id: id)
+            case .snooze(let id), .enableAlarm(let id): _ = try store.incompleteReminder(id: id)
             default: break
             }
             store.errorMessage = nil

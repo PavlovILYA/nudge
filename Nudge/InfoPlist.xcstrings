@@ -70,13 +70,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voice reminder"
+            "value": "Voice task"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Голосовое напоминание"
+            "value": "Задача голосом"
           }
         }
       }

@@ -19,7 +19,7 @@ struct EditReminderView: View {
         self.onSnooze = onSnooze
         _title = State(initialValue: reminder.title)
         _date = State(initialValue: enableAlarmOnOpen && (reminder.scheduledAt.map { $0 <= .now } ?? true) ? Date.now.addingTimeInterval(3600) : reminder.scheduledAt)
-        _alarmEnabled = State(initialValue: reminder.completedAt == nil && (enableAlarmOnOpen || store.activeAlarmDate(for: reminder) != nil || store.isAlerting(reminder) || reminder.alarmNeedsUpdate == true))
+        _alarmEnabled = State(initialValue: reminder.completedAt == nil && (enableAlarmOnOpen || (reminder.alarmEnabled && (store.activeAlarmDate(for: reminder) != nil || store.isAlerting(reminder) || reminder.alarmNeedsUpdate == true))))
         _sound = State(initialValue: reminder.sound)
         _calendarEnabled = State(initialValue: reminder.calendarEnabled == true)
     }
