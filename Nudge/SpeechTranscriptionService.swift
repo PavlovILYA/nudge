@@ -267,7 +267,7 @@ final class SpeechTranscriptionService {
         let results = resultTask
         analysisTask = Task { [weak self] in
             do {
-                _ = try await analyzer.analyzeSequence(inputSequence: converted)
+                _ = try await analyzer.analyzeSequence(converted)
                 try await analyzer.finalizeAndFinishThroughEndOfInput()
                 await results?.value
                 guard self?.generation == token, !Task.isCancelled else { return }

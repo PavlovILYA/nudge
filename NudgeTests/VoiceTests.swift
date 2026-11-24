@@ -93,6 +93,48 @@ final class VoiceCreationTests: XCTestCase {
         let retried = try await retrying.confirm(draft: draft, now: now) { _, _ in id }
         XCTAssertEqual(retried, id)
     }
+    func testVersion040StoreKeepsTasksAlarmAndCalendarIdentity() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let config = ModelConfiguration(url: directory.appendingPathComponent("legacy040.store"))
+        let date = Date(timeIntervalSince1970: 1_900_000_000)
+        let id = UUID()
+        do {
+            let old = try ModelContainer(for: Legacy040.Reminder.self, configurations: config)
+            let context = ModelContext(old)
+            context.insert(Legacy040.Reminder(id: id, date: date))
+            let completed = Legacy040.Reminder(id: UUID(), date: date)
+            completed.completedAt = date
+            context.insert(completed)
+            try context.save()
+        }
+        let current = try ModelContainer(for: Reminder.self, configurations: config)
+        let items = try ModelContext(current).fetch(FetchDescriptor<Reminder>())
+        XCTAssertEqual(items.count, 2)
+        let saved = try XCTUnwrap(items.first { $0.id == id })
+        XCTAssertEqual(saved.title, "Legacy 0.4.0")
+        XCTAssertEqual(saved.alarmID, id)
+        XCTAssertEqual(saved.scheduledAt, date)
+        XCTAssertEqual(saved.createdAt, date.addingTimeInterval(-60))
+        XCTAssertEqual(saved.nextAlarmAt, date.addingTimeInterval(300))
+        XCTAssertEqual(saved.pendingSnoozeAt, date.addingTimeInterval(600))
+        XCTAssertEqual(saved.sound, .experimentalVibrationOnly)
+        XCTAssertEqual(saved.alarmDisabled, false)
+        XCTAssertEqual(saved.alarmNeedsUpdate, true)
+        XCTAssertEqual(saved.calendarEnabled, true)
+        XCTAssertEqual(saved.calendarIdentifier, "calendar")
+        XCTAssertEqual(saved.calendarEventID, "event")
+        XCTAssertEqual(saved.calendarExternalID, "server")
+        XCTAssertEqual(saved.calendarEventDate, date)
+        XCTAssertEqual(saved.calendarNeedsSync, true)
+        XCTAssertEqual(saved.calendarError, "Calendar pending")
+        XCTAssertEqual(saved.alarmState, .failed)
+        XCTAssertEqual(saved.alarmError, "Alarm pending")
+        XCTAssertNil(saved.completedAt)
+        XCTAssertEqual(items.filter { $0.completedAt == date }.count, 1)
+    }
+
     func testConcurrentConfirmationDoesNotDuplicate() async throws {
         let now = Date(timeIntervalSince1970: 1_900_000_000)
         let draft = ReminderDraft(sourceText: "Task", title: "Task", date: now.addingTimeInterval(600), warnings: [])
@@ -105,5 +147,53 @@ final class VoiceCreationTests: XCTestCase {
         let id = UUID(); continuation?.resume(returning: id)
         let result = try await first.value
         XCTAssertEqual(result, id)
+    }
+}
+
+// Frozen 0.4.0 persisted fields. 0.5.0 deliberately adds no model properties.
+private enum Legacy040 {
+    @Model final class Reminder {
+        @Attribute(.unique) var id: UUID
+        var title: String
+        var scheduledAt: Date
+        var createdAt: Date
+        var nextAlarmAt: Date?
+        var pendingSnoozeAt: Date?
+        var soundModeID: String?
+        var alarmDisabled: Bool?
+        var alarmNeedsUpdate: Bool?
+        var calendarEnabled: Bool?
+        var calendarIdentifier: String?
+        var calendarEventID: String?
+        var calendarExternalID: String?
+        var calendarEventDate: Date?
+        var calendarNeedsSync: Bool?
+        var calendarError: String?
+        var completedAt: Date?
+        var alarmID: UUID
+        var alarmState: AlarmRegistration
+        var alarmError: String?
+
+        init(id: UUID, date: Date) {
+            self.id = id
+            title = "Legacy 0.4.0"
+            scheduledAt = date
+            createdAt = date.addingTimeInterval(-60)
+            nextAlarmAt = date.addingTimeInterval(300)
+            pendingSnoozeAt = date.addingTimeInterval(600)
+            soundModeID = "experimentalVibrationOnly"
+            alarmDisabled = false
+            alarmNeedsUpdate = true
+            calendarEnabled = true
+            calendarIdentifier = "calendar"
+            calendarEventID = "event"
+            calendarExternalID = "server"
+            calendarEventDate = date
+            calendarNeedsSync = true
+            calendarError = "Calendar pending"
+            alarmID = id
+            alarmState = .failed
+            alarmError = "Alarm pending"
+        }
     }
 }
