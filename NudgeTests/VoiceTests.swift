@@ -254,7 +254,7 @@ final class SpeechCallbackTests: XCTestCase {
 
     @MainActor
     func testAudioTapCanDeliverFromBackgroundWithoutMainActor() async throws {
-        let (stream, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream()
+        let (stream, sink) = AsyncThrowingStream<AVAudioPCMBuffer, Error>.makeStream()
         let tap = MicrophoneCapture.tap(sink)
         // Only the callback crosses queues. Allocate the framework buffers on the invoking queue.
         DispatchQueue.global().async {
@@ -263,15 +263,101 @@ final class SpeechCallbackTests: XCTestCase {
             buffer.frameLength = 32
             buffer.floatChannelData![0].initialize(repeating: 0.25, count: 32)
             tap(buffer, AVAudioTime(sampleTime: 0, atRate: 16_000))
+            // Hardware owns and can reuse the original as soon as the tap returns.
+            buffer.floatChannelData![0].update(repeating: -0.5, count: 32)
             sink.finish()
         }
         var received = 0
         for try await input in stream {
             received += 1
-            XCTAssertEqual(input.buffer.frameLength, 32)
-            XCTAssertEqual(input.buffer.floatChannelData![0][0], 0.25)
+            XCTAssertEqual(input.format.commonFormat, .pcmFormatFloat32)
+            XCTAssertEqual(input.frameLength, 32)
+            XCTAssertEqual(input.floatChannelData![0][0], 0.25)
         }
         XCTAssertEqual(received, 1)
+    }
+
+    @MainActor
+    func testAnalyzerConvertsFloat32BeforeCreatingInputAndDrainsTail() throws {
+        let source = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000,
+                                   channels: 1, interleaved: false)!
+        let converter = try XCTUnwrap(AVAudioConverter(from: source, to: target))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: source, frameCapacity: 4800))
+        buffer.frameLength = 4800
+        buffer.floatChannelData![0].initialize(repeating: 0.25, count: 4800)
+        var frames: AVAudioFrameCount = 0
+        var heardSignal = false
+        func inspect(_ input: AnalyzerInput?) {
+            guard let input else { return }
+            let pcm = input.buffer // Also works on iOS 26.
+            XCTAssertEqual(pcm.format.commonFormat, .pcmFormatInt16)
+            XCTAssertEqual(pcm.format.sampleRate, 16_000)
+            XCTAssertEqual(pcm.format.channelCount, 1)
+            XCTAssertNotNil(pcm.int16ChannelData)
+            frames += pcm.frameLength
+            if let samples = pcm.int16ChannelData?[0] {
+                heardSignal = heardSignal || (0..<Int(pcm.frameLength)).contains { abs(Int(samples[$0]) - 8192) < 128 }
+            }
+        }
+        // Fresh outputs are required: later conversion must not mutate earlier inputs.
+        let first = try SpeechCallbacks.analyzerInput(converter, buffer: buffer)
+        let firstBytes = first.input.map { input -> Data in
+            let pcm = input.buffer
+            return Data(bytes: pcm.int16ChannelData![0], count: Int(pcm.frameLength) * 2)
+        }
+        inspect(first.input)
+        var ended = false
+        for _ in 0..<8 {
+            let tail = try SpeechCallbacks.analyzerInput(converter, buffer: nil)
+            inspect(tail.input)
+            if tail.status == .endOfStream || tail.input == nil { ended = true; break }
+        }
+        XCTAssertTrue(ended, "Converter did not finish EOF")
+        XCTAssertGreaterThan(frames, 0)
+        XCTAssertTrue(heardSignal, "Float32 0.25 should become approximately Int16 8192")
+        if let input = first.input {
+            let pcm = input.buffer
+            XCTAssertEqual(Data(bytes: pcm.int16ChannelData![0], count: Int(pcm.frameLength) * 2), firstBytes)
+        }
+        XCTAssertEqual(buffer.format.commonFormat, .pcmFormatFloat32)
+        XCTAssertEqual(buffer.floatChannelData![0][0], 0.25)
+    }
+
+    @MainActor
+    func testLegacyAcceptsCopiedNativeFloat32WithoutAnalyzerInput() async throws {
+        let (stream, sink) = AsyncThrowingStream<AVAudioPCMBuffer, Error>.makeStream()
+        let tap = MicrophoneCapture.tap(sink)
+        let source = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let hardwareBuffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: source, frameCapacity: 1024))
+        hardwareBuffer.frameLength = 1024
+        hardwareBuffer.floatChannelData![0].initialize(repeating: 0.5, count: 1024)
+        tap(hardwareBuffer, AVAudioTime(sampleTime: 0, atRate: 48_000))
+        hardwareBuffer.floatChannelData![0].update(repeating: 0, count: 1024)
+        sink.finish()
+        // Buffer append is the legacy input API; no recognition task, permission or model is used.
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.requiresOnDeviceRecognition = true
+        var count = 0
+        for try await buffer in stream {
+            XCTAssertFalse(buffer === hardwareBuffer)
+            XCTAssertEqual(buffer.format.commonFormat, .pcmFormatFloat32)
+            XCTAssertEqual(buffer.frameLength, 1024)
+            XCTAssertEqual(buffer.floatChannelData![0][0], 0.5)
+            request.append(buffer)
+            count += 1
+        }
+        request.endAudio()
+        XCTAssertEqual(count, 1)
+    }
+
+    @MainActor
+    func testAnalyzerRejectsNonInt16DestinationAsAnErrorBeforeFrameworkPrecondition() throws {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
+        let converter = try XCTUnwrap(AVAudioConverter(from: format, to: format))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 32))
+        buffer.frameLength = 32
+        XCTAssertThrowsError(try SpeechCallbacks.analyzerInput(converter, buffer: buffer))
     }
 
     @MainActor
@@ -295,13 +381,13 @@ final class SpeechCallbackTests: XCTestCase {
 private final class TestMicrophone: MicrophoneCapturing {
     private(set) var ownsResources = false
     private(set) var stopCount = 0
-    private var continuation: AsyncThrowingStream<AnalyzerInput, Error>.Continuation?
+    private var continuation: AsyncThrowingStream<AVAudioPCMBuffer, Error>.Continuation?
     func configure() throws -> AVAudioFormat {
         ownsResources = true
         return AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
     }
-    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AnalyzerInput, Error> {
-        let (stream, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream()
+    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AVAudioPCMBuffer, Error> {
+        let (stream, sink) = AsyncThrowingStream<AVAudioPCMBuffer, Error>.makeStream()
         continuation = sink
         return stream
     }

@@ -45,6 +45,25 @@ enum SpeechCallbacks {
         }
     }
 
+    // AnalyzerInput's PCM initializer requires signed Int16. Native microphone PCM
+    // (usually Float32) must remain a plain buffer until conversion has completed.
+    nonisolated static func analyzerInput(_ converter: AVAudioConverter, buffer: AVAudioPCMBuffer?) throws
+        -> (input: AnalyzerInput?, status: AVAudioConverterOutputStatus) {
+        let format = converter.outputFormat
+        guard format.commonFormat == .pcmFormatInt16 else { throw CaptureError.audio }
+        if let buffer, buffer.format != converter.inputFormat { throw CaptureError.audio }
+        let capacity = buffer.map {
+            AVAudioFrameCount(ceil(Double($0.frameLength) * format.sampleRate / converter.inputFormat.sampleRate)) + 32
+        } ?? 4096
+        guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { throw CaptureError.audio }
+        var error: NSError?
+        let status = convert(converter, output: output, input: buffer, error: &error)
+        if let error { throw error }
+        guard status != .error else { throw CaptureError.audio }
+        // A fresh output is handed off once and is never reused by the converter.
+        return (output.frameLength > 0 ? AnalyzerInput(buffer: output) : nil, status)
+    }
+
     // AVAudioConverter invokes its input block synchronously during convert().
     // The per-call supply flag and buffers never cross an actor or escape this call.
     nonisolated static func convert(_ converter: AVAudioConverter, output: AVAudioPCMBuffer,
@@ -63,7 +82,7 @@ enum SpeechCallbacks {
 @MainActor
 protocol MicrophoneCapturing: AnyObject {
     func configure() throws -> AVAudioFormat
-    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AnalyzerInput, Error>
+    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AVAudioPCMBuffer, Error>
     func stop()
 }
 
@@ -73,7 +92,7 @@ final class MicrophoneCapture: MicrophoneCapturing {
     private var engine: AVAudioEngine?
     private var tapped = false
     private var ownsSession = false
-    private var continuation: AsyncThrowingStream<AnalyzerInput, Error>.Continuation?
+    private var continuation: AsyncThrowingStream<AVAudioPCMBuffer, Error>.Continuation?
 
     func configure() throws -> AVAudioFormat {
         let session = AVAudioSession.sharedInstance()
@@ -87,7 +106,7 @@ final class MicrophoneCapture: MicrophoneCapturing {
         return format
     }
 
-    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AnalyzerInput, Error> {
+    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AVAudioPCMBuffer, Error> {
         guard let engine else { throw CaptureError.audio }
         // Route changes can occur while analyzer preparation suspends. Input nodes
         // cannot convert a stale hardware format; reject it before installTap asserts.
@@ -96,7 +115,7 @@ final class MicrophoneCapture: MicrophoneCapturing {
               current.sampleRate == format.sampleRate, current.channelCount == format.channelCount,
               current.commonFormat == format.commonFormat, current.isInterleaved == format.isInterleaved
         else { throw CaptureError.audio }
-        let (stream, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream(bufferingPolicy: .bufferingNewest(64))
+        let (stream, sink) = AsyncThrowingStream<AVAudioPCMBuffer, Error>.makeStream(bufferingPolicy: .bufferingNewest(64))
         continuation = sink
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.tap(sink))
         tapped = true
@@ -117,23 +136,29 @@ final class MicrophoneCapture: MicrophoneCapturing {
         }
     }
 
-    nonisolated static func tap(_ sink: AsyncThrowingStream<AnalyzerInput, Error>.Continuation) -> @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void {
+    nonisolated static func tap(_ sink: AsyncThrowingStream<AVAudioPCMBuffer, Error>.Continuation) -> @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void {
         { buffer, _ in
             guard let copy = Self.copy(buffer) else { sink.finish(throwing: CaptureError.audio); return }
-            if case .dropped = sink.yield(AnalyzerInput(buffer: copy)) { sink.finish(throwing: CaptureError.overflow) }
+            if case .dropped = sink.yield(copy) { sink.finish(throwing: CaptureError.overflow) }
         }
     }
 
-    private nonisolated static func copy(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+    private nonisolated static func copy(_ buffer: AVAudioPCMBuffer) -> sending AVAudioPCMBuffer? {
+        // Snapshot into Sendable bytes first. A raw memcpy between two non-Sendable
+        // buffers conservatively aliases their Swift concurrency regions.
+        let source = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
+        var samples: [Data] = []
+        for segment in source {
+            guard let bytes = segment.mData else { return nil }
+            samples.append(Data(bytes: bytes, count: Int(segment.mDataByteSize)))
+        }
         guard let result = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength) else { return nil }
         result.frameLength = buffer.frameLength
-        let source = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
         let target = UnsafeMutableAudioBufferListPointer(result.mutableAudioBufferList)
-        guard source.count == target.count else { return nil }
-        for i in 0..<source.count {
-            guard let src = source[i].mData, let dst = target[i].mData,
-                  target[i].mDataByteSize >= source[i].mDataByteSize else { return nil }
-            memcpy(dst, src, Int(source[i].mDataByteSize))
+        guard samples.count == target.count else { return nil }
+        for i in 0..<target.count {
+            guard let dst = target[i].mData, Int(target[i].mDataByteSize) >= samples[i].count else { return nil }
+            samples[i].copyBytes(to: dst.assumingMemoryBound(to: UInt8.self), count: samples[i].count)
         }
         return result
     }
@@ -308,24 +333,16 @@ final class SpeechTranscriptionService {
         guard let converter = AVAudioConverter(from: naturalFormat, to: format) else { throw CaptureError.audio }
         inputTask = Task {
             do {
-                for try await input in input {
+                for try await buffer in input {
                     try Task.checkCancellation()
-                    let buffer = input.buffer // iOS 26 compatibility; 27-only read-only APIs are not required.
-                    let capacity = AVAudioFrameCount(ceil(Double(buffer.frameLength) * format.sampleRate / naturalFormat.sampleRate)) + 32
-                    guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { throw CaptureError.audio }
-                    var error: NSError?
-                    let status = SpeechCallbacks.convert(converter, output: output, input: buffer, error: &error)
-                    guard status != .error, error == nil else { throw CaptureError.audio }
-                    if output.frameLength > 0, case .dropped = sink.yield(AnalyzerInput(buffer: output)) { throw CaptureError.overflow }
+                    let result = try SpeechCallbacks.analyzerInput(converter, buffer: buffer)
+                    if let input = result.input, case .dropped = sink.yield(input) { throw CaptureError.overflow }
                 }
                 // Drain resampler tail before finalizing the utterance.
                 while !Task.isCancelled {
-                    guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4096) else { throw CaptureError.audio }
-                    var error: NSError?
-                    let status = SpeechCallbacks.convert(converter, output: output, input: nil, error: &error)
-                    guard status != .error, error == nil else { throw CaptureError.audio }
-                    if output.frameLength > 0, case .dropped = sink.yield(AnalyzerInput(buffer: output)) { throw CaptureError.overflow }
-                    if status == .endOfStream || output.frameLength == 0 { break }
+                    let result = try SpeechCallbacks.analyzerInput(converter, buffer: nil)
+                    if let input = result.input, case .dropped = sink.yield(input) { throw CaptureError.overflow }
+                    if result.status == .endOfStream || result.input == nil { break }
                 }
                 sink.finish()
             } catch { sink.finish(throwing: error) }
@@ -377,9 +394,9 @@ final class SpeechTranscriptionService {
         let input = try microphone.start(format: format)
         inputTask = Task { [weak self] in
             do {
-                for try await input in input {
+                for try await buffer in input {
                     guard self?.generation == token, !Task.isCancelled else { return }
-                    request.append(input.buffer)
+                    request.append(buffer)
                 }
                 guard self?.generation == token, !Task.isCancelled else { return }
                 request.endAudio() // All queued buffers have been appended before EOF.

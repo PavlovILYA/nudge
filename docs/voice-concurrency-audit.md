@@ -94,3 +94,37 @@ preparation tool, not an application dependency). The 1024×1024 RGB PNG has no 
 and uses the universal iOS AppIcon slot. iOS supplies the home-screen mask and can
 derive appearances; no separate custom dark/tinted variants are required. CI checks
 compiled icon metadata, PNGs and Assets.car inside each built app.
+
+
+## Native PCM / AnalyzerInput precondition follow-up
+
+The device log and the previous CI test `testAudioTapCanDeliverFromBackgroundWithoutMainActor`
+reproduce a second failure: `Audio sample data must be 16-bit signed integers`.
+The tap previously constructed `AnalyzerInput` from native Float32 microphone PCM
+before format conversion, even when the consumer was the legacy recognizer.
+
+The microphone stream now yields exclusively owned `AVAudioPCMBuffer` copies.
+The nonisolated tap snapshots source bytes before hardware can reuse the source,
+then creates a new PCM buffer and transfers it with a `sending` return. A short-lived
+Sendable byte snapshot lets Swift prove separation of the two mutable buffers;
+no unchecked Sendable conformance or actor-check suppression is used. The app's
+SDK provides immutable AVAudioFormat Sendable support from iOS 26.
+
+`startAnalyzer` converts native PCM with AVAudioConverter and only then constructs
+AnalyzerInput, including resampler EOF output. It checks the Int16 destination before
+calling the framework initializer and propagates converter errors. Fresh output
+buffers are never reused. `startLegacy` appends the copied native PCM directly,
+without constructing AnalyzerInput or converting the legacy stream.
+
+Regression tests cover background Float32 delivery and source reuse, Float32 48 kHz
+→ Int16 16 kHz conversion and EOF, preserved earlier output, invalid destination
+errors, and legacy buffer append without a recognition task or system permissions.
+The existing Float32 tap test already crashed on the old code in CI, providing the
+before-fix regression. Actual iOS tests must exercise Apple's AnalyzerInput; a local
+Swift 6 / macOS AVFoundation probe validates conversion, ownership and legacy append
+but uses a small Int16-asserting stand-in for AnalyzerInput and a fixed probe format
+because the local SDK predates SpeechAnalyzer and AVAudioFormat Sendable support.
+
+On iPhone, repeat ordinary voice start, partial text, Stop, Repeat, Cancel and both
+widget launch paths. Device resolution is not claimed without that retest. Task
+storage, AlarmKit, Calendar, widgets, version and build are unchanged by this fix.
