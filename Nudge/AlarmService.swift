@@ -5,10 +5,13 @@ import SwiftUI
 /// The only system boundary. Tests supply closures and never request permissions.
 @MainActor
 struct AlarmService {
+    static let actionsVersion = 1
+
     var authorize: () async throws -> Void = {}
     var schedule: (UUID, String, Date, AlarmSound) async throws -> Void
     var cancel: (UUID) throws -> Void
     var scheduledAlarms: () throws -> [UUID: Date]
+    var alertingAlarms: () throws -> Set<UUID> = { [] }
 
     static let live = AlarmService(
         authorize: {
@@ -20,7 +23,7 @@ struct AlarmService {
             let manager = AlarmManager.shared
             try Reminder.validateSnoozeDate(date)
             if sound.filename != nil, sound.resourceURL() == nil { throw AlarmError.missingSound }
-            let chooseTime = AlarmButton(text: "Snooze", textColor: .white, systemImageName: "clock.arrow.circlepath")
+            let chooseTime = AlarmButton(text: "Actions", textColor: .white, systemImageName: "clock.arrow.circlepath")
             let alert: AlarmPresentation.Alert
             if #available(iOS 26.1, *) {
                 // Modern iOS owns the stop control and may render the custom action as Open.
@@ -38,6 +41,7 @@ struct AlarmService {
             )
             let configuration = AlarmManager.AlarmConfiguration(
                 schedule: .fixed(date), attributes: attributes,
+                stopIntent: CompleteTaskIntent(reminderID: id.uuidString),
                 secondaryIntent: ChooseTimeIntent(reminderID: id.uuidString), sound: sound.alertSound)
             let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "AlarmScheduling")
             logger.info("Scheduling id=\(id.uuidString, privacy: .public) mode=\(sound.rawValue, privacy: .public) sound=\(sound.diagnostic, privacy: .public) date=\(date.ISO8601Format(), privacy: .public)")
@@ -61,6 +65,9 @@ struct AlarmService {
                 if case .fixed(let date) = alarm.schedule { dates[alarm.id] = date }
             }
             return dates
+        },
+        alertingAlarms: {
+            Set(try AlarmManager.shared.alarms.filter { $0.state == .alerting }.map(\.id))
         }
     )
 

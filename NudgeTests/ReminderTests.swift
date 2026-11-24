@@ -69,7 +69,7 @@ final class ReminderTests: XCTestCase {
         XCTAssertNotNil(reminder.alarmError)
     }
 
-    func testCancelFailureRetainsIncompleteTaskAndAllowsRetry() throws {
+    func testCancelFailureKeepsDurableCompletionAndAllowsRetry() throws {
         let context = try memoryContext()
         let reminder = try Reminder(title: "Task", scheduledAt: now.addingTimeInterval(60), now: now)
         context.insert(reminder)
@@ -77,7 +77,8 @@ final class ReminderTests: XCTestCase {
         let failing = ReminderStore(context: context, alarms: AlarmService(
             schedule: { _, _, _, _ in }, cancel: { _ in throw TestError.denied }, scheduledAlarms: { [:] }))
         failing.complete(reminder)
-        XCTAssertNil(reminder.completedAt)
+        XCTAssertNotNil(reminder.completedAt)
+        XCTAssertEqual(reminder.alarmNeedsUpdate, true)
         failing.delete(reminder)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 1)
         XCTAssertNotNil(failing.errorMessage)
@@ -265,7 +266,7 @@ final class ReminderTests: XCTestCase {
             let store = ReminderStore(context: reopened, alarms: AlarmService(
                 schedule: { _, _, _, _ in XCTFail("Never automatically retry interrupted intent") },
                 cancel: { _ in XCTFail("Never cancel on refresh") },
-                scheduledAlarms: { [reminder.alarmID: registered ? target : reminder.scheduledAt] }))
+                scheduledAlarms: { [reminder.alarmID: registered ? target : reminder.scheduledAt!] }))
             store.refresh()
             let saved = try XCTUnwrap(reopened.fetch(FetchDescriptor<Reminder>()).first)
             XCTAssertNil(saved.completedAt)

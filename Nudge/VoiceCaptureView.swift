@@ -11,15 +11,13 @@ struct VoiceCaptureView: View {
     @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = AlarmSound.newReminderDefault
     @AppStorage(CalendarService.defaultKey) private var calendarDefault = false
     @AppStorage(CalendarService.destinationKey) private var calendarID = ""
-    @AppStorage("experimentalSoundAcknowledged") private var experimentalAcknowledged = false
     @State private var speech = SpeechTranscriptionService()
     @State private var creation = VoiceCreation()
     @State private var transcript = ""
     @State private var editingTranscript = false
     @State private var proposal: ReminderDraft?
-    @State private var title = ""
-    @State private var date = Date.now.addingTimeInterval(300)
-    @State private var hasDate = false
+    @State private var fields = VoiceTaskFields()
+    @State private var transcriptEdited = false
     @State private var soundOverride: AlarmSound?
     @State private var calendarEnabled = false
     @State private var interpreting = false
@@ -66,7 +64,9 @@ struct VoiceCaptureView: View {
                 guard let source = interpretationText else { return }
                 await interpret(source: source)
             }
-            .onChange(of: speech.text) { _, value in transcript = value }
+            .onChange(of: speech.text) { _, value in
+                if !transcriptEdited && creation.createdID == nil { transcript = value }
+            }
             .onChange(of: speech.isBusy) { _, busy in
                 if busy {
                     interpretationVersion += 1
@@ -92,7 +92,7 @@ struct VoiceCaptureView: View {
                 let reason = raw.flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
                 if speech.phase == .recording, SpeechCallbacks.shouldInterruptRecording(for: reason) { speech.interrupt() }
             }
-            .onDisappear { speech.cancel(clearText: true); interpretationVersion += 1; transcript = ""; proposal = nil; title = "" }
+            .onDisappear { speech.cancel(clearText: true); interpretationVersion += 1; transcript = ""; proposal = nil; fields = VoiceTaskFields() }
         }
     }
 
@@ -118,7 +118,7 @@ struct VoiceCaptureView: View {
         if transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Section {
                 Text("Speak your reminder").foregroundStyle(.secondary)
-                Button { Task { await speech.start() } } label: {
+                Button { Task { await startRecording() } } label: {
                     Label("Record reminder", systemImage: "mic.fill").frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large).disabled(!speech.canRecord)
@@ -127,24 +127,21 @@ struct VoiceCaptureView: View {
         }
         if !transcript.isEmpty || editingTranscript {
             Section {
-                DisclosureGroup("Edit phrase", isExpanded: $editingTranscript) {
-                    TextEditor(text: $transcript).frame(minHeight: 100).accessibilityLabel("Transcript")
+                DisclosureGroup("Correct text", isExpanded: $editingTranscript) {
+                    TextEditor(text: Binding(get: { transcript }, set: { transcriptEdited = true; transcript = $0 })).frame(minHeight: 100).accessibilityLabel("Transcript")
                 }
             }
         }
         if interpreting { ProgressView("Processing…") }
         if let proposal {
             Section("Check the reminder") {
-                TextField("Task title", text: $title, axis: .vertical).font(.headline)
-                if !hasDate { Text("Choose when to remind you.").foregroundStyle(.secondary) }
-                DatePicker("When", selection: Binding(get: { date }, set: { date = $0; hasDate = true }), displayedComponents: [.date, .hourAndMinute])
-                    .datePickerStyle(.compact)
+                TextField("Task title", text: Binding(get: { fields.title }, set: { fields.editTitle($0) }), axis: .vertical).font(.headline)
+                TaskScheduleFields(date: Binding(get: { fields.date }, set: { fields.editDate($0) }), alarmEnabled: Binding(get: { fields.alarmEnabled }, set: { fields.editAlarm($0) }))
                 if proposal.warnings.contains(.unsupportedRecurrence) {
                     Text("Repeating commands are not supported. Only a one-time reminder can be created here.").font(.footnote).foregroundStyle(.orange)
                 } else if proposal.warnings.contains(.ambiguous) {
                     Text("Check the title and time.").font(.footnote).foregroundStyle(.orange)
                 }
-                if hasDate, date <= .now { Text("Choose a date and time in the future.").foregroundStyle(.orange) }
             }
             .disabled(interpreting)
             Section {
@@ -155,12 +152,9 @@ struct VoiceCaptureView: View {
                     }.frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
-                Button("Record again") { Task { await speech.start() } }.disabled(!speech.canRecord)
-                if (soundOverride ?? defaultSound) == .experimentalVibrationOnly && !experimentalAcknowledged {
-                    Text("Experimental silent signal: silence and vibration are not guaranteed.").font(.footnote).foregroundStyle(.secondary)
-                    Button("Got it") { experimentalAcknowledged = true }
-                }
+                .disabled(!ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: []).canCreate(now: .now, alarmEnabled: fields.alarmEnabled) || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
+                Button("Record again") { Task { await startRecording() } }.disabled(!speech.canRecord)
+
             }
             Section {
                 DisclosureGroup {
@@ -201,7 +195,7 @@ struct VoiceCaptureView: View {
             Label("Task saved", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
             if let task = try? store.reminder(id: id) {
                 Text(task.title).font(.headline)
-                Text(task.scheduledAt, format: .dateTime.month().day().hour().minute())
+                if let date = task.scheduledAt { Text(date, format: .dateTime.month().day().hour().minute()) }
                 if let error = task.calendarError { Text(error).foregroundStyle(.orange) }
             }
             if let error = store.errorMessage { Text(error).foregroundStyle(.orange) }
@@ -219,10 +213,19 @@ struct VoiceCaptureView: View {
         Self.interpretationSource(text: transcript, isCapturing: speech.isBusy, hasCreatedTask: creation.createdID != nil)
     }
 
+    private func startRecording() async {
+        guard !speech.isBusy, !creation.isSaving, speech.canRecord else { return }
+        fields = VoiceTaskFields()
+        transcriptEdited = false
+        transcript = ""
+        proposal = nil
+        await speech.start()
+    }
+
     private func autoStartIfAllowed() {
         guard !attemptedAutoStart, scenePhase == .active, speech.canRecord else { return }
         attemptedAutoStart = true
-        if speech.permissionsGranted { Task { await speech.start() } }
+        if speech.permissionsGranted { Task { await startRecording() } }
     }
 
     private func interpret(source: String) async {
@@ -247,8 +250,8 @@ struct VoiceCaptureView: View {
             let start = ContinuousClock.now
             let draft = try await interpreter.interpret(text: source, context: context)
             guard !Task.isCancelled, version == interpretationVersion, source == transcript.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
-            proposal = draft; title = draft.title; hasDate = draft.date != nil
-            date = draft.date ?? context.now.addingTimeInterval(300)
+            proposal = draft
+            fields.apply(draft)
             errorMessage = nil
             let elapsed = start.duration(to: .now).components
             logger.info("interpretation_ms=\(Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15, privacy: .public)")
@@ -259,14 +262,14 @@ struct VoiceCaptureView: View {
     private func create() async {
         guard proposal?.isCurrent(for: transcript) == true, !interpreting, !speech.isBusy else { return }
         speech.cancel()
-        let draft = ReminderDraft(sourceText: transcript, title: title, date: hasDate ? date : nil, warnings: proposal?.warnings ?? [])
+        let draft = ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: proposal?.warnings ?? [])
         let sound = soundOverride ?? defaultSound
         let enabled = calendarEnabled
         let destination = calendarID.isEmpty ? nil : calendarID
         do {
             let start = ContinuousClock.now
-            let id = try await creation.confirm(draft: draft, now: .now) { title, date in
-                if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination) {
+            let id = try await creation.confirm(draft: draft, now: .now, alarmEnabled: fields.alarmEnabled) { title, date in
+                if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination, alarmEnabled: fields.alarmEnabled) {
                     return store.lastCreatedID
                 }
                 return nil

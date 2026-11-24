@@ -8,18 +8,28 @@ struct EditReminderView: View {
     @AppStorage(CalendarService.destinationKey) private var destinationID = ""
     @State private var confirmingDelete = false
     @State private var title: String
-    @State private var date: Date
+    @State private var date: Date?
+    @State private var alarmEnabled: Bool
     @State private var sound: AlarmSound
     @State private var calendarEnabled: Bool
 
-    init(reminder: Reminder, store: ReminderStore, onSnooze: @escaping () -> Void) {
+    init(reminder: Reminder, store: ReminderStore, enableAlarmOnOpen: Bool = false, onSnooze: @escaping () -> Void) {
         self.reminder = reminder
         self.store = store
         self.onSnooze = onSnooze
         _title = State(initialValue: reminder.title)
-        _date = State(initialValue: reminder.scheduledAt)
+        _date = State(initialValue: enableAlarmOnOpen && (reminder.scheduledAt.map { $0 <= .now } ?? true) ? Date.now.addingTimeInterval(3600) : reminder.scheduledAt)
+        _alarmEnabled = State(initialValue: reminder.completedAt == nil && (enableAlarmOnOpen || store.activeAlarmDate(for: reminder) != nil || store.isAlerting(reminder) || reminder.alarmNeedsUpdate == true))
         _sound = State(initialValue: reminder.sound)
         _calendarEnabled = State(initialValue: reminder.calendarEnabled == true)
+    }
+
+    private var canSave: Bool {
+        let draft = ReminderDraft(sourceText: "", title: title, date: date, warnings: [])
+        if draft.canCreate(now: .now, alarmEnabled: alarmEnabled) { return true }
+        // Metadata edits preserve a future Snooze without moving an overdue deadline.
+        return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && date != nil
+            && date == reminder.scheduledAt && reminder.alarmDisabled != true && reminder.alarmNeedsUpdate != true
     }
 
     var body: some View {
@@ -27,12 +37,12 @@ struct EditReminderView: View {
             Form {
                 Section {
                     TextField("Task title", text: $title, axis: .vertical)
-                    DatePicker("Original task time", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                    TaskScheduleFields(date: $date, alarmEnabled: $alarmEnabled, canEnableAlarm: reminder.completedAt == nil)
                     Picker("Reminder sound", selection: $sound) {
                         ForEach(AlarmSound.allCases) { Text($0.title).tag($0) }
                     }
                 } footer: {
-                    Text("Changing the task time moves its deadline and Calendar event, and resets Snooze. A moved task needs a future date.")
+                    Text("Changing the task time updates its Calendar event. Snooze changes only the next alarm.")
                 }
                 SoundDetails(sound: sound)
                 CalendarTaskToggle(enabled: $calendarEnabled, hasExistingLink: reminder.calendarEventID != nil)
@@ -43,9 +53,13 @@ struct EditReminderView: View {
                             store.complete(reminder)
                             if reminder.completedAt != nil { dismiss() }
                         }
-                        Button("Snooze", systemImage: "clock.arrow.circlepath", action: onSnooze)
-                        Button("Turn off alarm", systemImage: "alarm.waves.left.and.right.slash") { store.disableAlarm(reminder) }
-                        if reminder.alarmDisabled == true { Text("Alarm is off. The task is not completed.").foregroundStyle(.secondary) }
+                        if store.isAlerting(reminder) { Button("Actions", systemImage: "ellipsis.circle", action: onSnooze) }
+                        if reminder.alarmDisabled != true {
+                            Button("Turn off alarm", systemImage: "alarm.waves.left.and.right.slash") {
+                                store.disableAlarm(reminder)
+                                alarmEnabled = reminder.alarmDisabled != true
+                            }
+                        }
                     } header: { Text("Task actions") } footer: {
                         Text("Actions apply to the saved task. Use Save to apply changes in this form.")
                     }
@@ -66,9 +80,9 @@ struct EditReminderView: View {
                     Button("Save") {
                         Task {
                             if await store.edit(id: reminder.id, title: title, date: date, sound: sound,
-                                calendarEnabled: calendarEnabled, calendarID: destinationID.isEmpty ? nil : destinationID) { dismiss() }
+                                calendarEnabled: calendarEnabled, calendarID: destinationID.isEmpty ? nil : destinationID, alarmEnabled: alarmEnabled) { dismiss() }
                         }
-                    }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }.disabled(!canSave)
                 }
             }
             .confirmationDialog("Delete task?", isPresented: $confirmingDelete, titleVisibility: .visible) {
@@ -84,6 +98,8 @@ struct EditReminderView: View {
             } message: {
                 Text("The alarm is cancelled in either case. Deleting only the task leaves Calendar unchanged, even if the linked event cannot be found.")
             }
+            .onChange(of: reminder.completedAt) { _, completed in if completed != nil { alarmEnabled = false } }
+            .onChange(of: reminder.alarmDisabled) { _, disabled in if disabled == true { alarmEnabled = false } }
             .disabled(store.isBusy)
             .interactiveDismissDisabled(store.isBusy)
         }

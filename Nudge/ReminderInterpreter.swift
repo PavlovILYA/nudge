@@ -20,11 +20,17 @@ struct ReminderDraft: Sendable, Equatable {
         case missingDate, missingTime, ambiguous, invalidDate, pastDate, missingTitle, unsupportedRecurrence
     }
     func isCurrent(for text: String) -> Bool { sourceText == text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    func canCreate(now: Date, alarmEnabled: Bool) -> Bool {
+        do { _ = try validated(now: now, alarmEnabled: alarmEnabled); return true }
+        catch { return false }
+    }
     enum ValidationError: Error { case title, date }
-    func validated(now: Date) throws -> (title: String, date: Date) {
+    func validated(now: Date, alarmEnabled: Bool = true) throws -> (title: String, date: Date?) {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw ValidationError.title }
-        guard let date, date.timeIntervalSince1970.isFinite, date > now else { throw ValidationError.date }
+        if alarmEnabled {
+            guard let date, date.timeIntervalSince1970.isFinite, date > now else { throw ValidationError.date }
+        } else if let date, !date.timeIntervalSince1970.isFinite { throw ValidationError.date }
         return (title, date)
     }
 }

@@ -5,7 +5,7 @@ import SwiftData
 final class Reminder {
     @Attribute(.unique) private(set) var id: UUID
     private(set) var title: String
-    private(set) var scheduledAt: Date
+    private(set) var scheduledAt: Date?
     private(set) var createdAt: Date
     // Optional additions preserve the 0.1.0 store through lightweight migration.
     var nextAlarmAt: Date?
@@ -13,6 +13,7 @@ final class Reminder {
     var soundModeID: String?
     var alarmDisabled: Bool?
     var alarmNeedsUpdate: Bool?
+    var alarmActionsVersion: Int?
     var calendarEnabled: Bool?
     var calendarIdentifier: String?
     var calendarEventID: String?
@@ -25,19 +26,23 @@ final class Reminder {
     var alarmState: AlarmRegistration
     var alarmError: String?
 
-    init(id: UUID = UUID(), title: String, scheduledAt: Date, now: Date = .now) throws {
+    init(id: UUID = UUID(), title: String, scheduledAt: Date? = nil, now: Date = .now, alarmEnabled: Bool? = nil) throws {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw ValidationError.emptyTitle }
-        guard scheduledAt > now else { throw ValidationError.pastDate }
+        let enabled = alarmEnabled ?? (scheduledAt != nil)
+        if enabled {
+            guard let scheduledAt, scheduledAt.timeIntervalSince1970.isFinite, scheduledAt > now else { throw ValidationError.pastDate }
+        } else if let scheduledAt, !scheduledAt.timeIntervalSince1970.isFinite { throw ValidationError.pastDate }
         self.id = id
         self.title = title
         self.scheduledAt = scheduledAt
         self.createdAt = now
         self.alarmID = id
-        self.alarmState = .unconfirmed
+        self.alarmDisabled = !enabled
+        self.alarmState = enabled ? .unconfirmed : .absent
     }
 
-    func applyEdit(title: String, date: Date, sound: AlarmSound) {
+    func applyEdit(title: String, date: Date?, sound: AlarmSound) {
         self.title = title
         self.scheduledAt = date
         self.soundModeID = sound.rawValue
@@ -45,7 +50,7 @@ final class Reminder {
 
     var sound: AlarmSound { AlarmSound(rawValue: soundModeID ?? "") ?? .systemDefault }
 
-    var effectiveAlarmAt: Date { nextAlarmAt ?? scheduledAt }
+    var effectiveAlarmAt: Date? { nextAlarmAt ?? scheduledAt }
 
     static func validateSnoozeDate(_ date: Date, now: Date = .now) throws {
         guard date.timeIntervalSince1970.isFinite, date > now else { throw ValidationError.pastDate }
@@ -53,7 +58,7 @@ final class Reminder {
 
     func state(at now: Date) -> TaskState {
         if completedAt != nil { return .completed }
-        return scheduledAt > now ? .pending : .overdue
+        return scheduledAt.map { $0 > now ? .pending : .overdue } ?? .pending
     }
 
     enum TaskState { case pending, overdue, completed }

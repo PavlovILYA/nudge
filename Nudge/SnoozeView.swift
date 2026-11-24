@@ -62,6 +62,9 @@ struct SnoozeView: View {
                             .frame(minHeight: 44)
                             .disabled(date <= .now)
                     }
+                    Button("Turn off alarm", systemImage: "alarm.slash") {
+                        if store.disableAlarm(reminder) { dismiss() }
+                    }
                     Button("Edit task", systemImage: "pencil", action: onEdit)
                         .frame(minHeight: 44)
                     if let error = store.errorMessage {
@@ -71,7 +74,7 @@ struct SnoozeView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Snooze")
+            .navigationTitle("Actions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

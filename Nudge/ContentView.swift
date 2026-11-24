@@ -58,7 +58,7 @@ struct ContentView: View {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(reminder.title).font(.headline)
                                     Text(reminder.sound.title).font(.caption).foregroundStyle(.secondary)
-                                    Text(reminder.scheduledAt, format: .dateTime.month().day().year().hour().minute()).font(.subheadline)
+                                    if let date = reminder.scheduledAt { Text(date, format: .dateTime.month().day().year().hour().minute()).font(.subheadline) }
                                     if reminder.completedAt != nil {
                                         Label("Completed", systemImage: "checkmark.circle")
                                     } else {

@@ -94,6 +94,7 @@ struct CalendarTaskStatus: View {
         if reminder.calendarEnabled == true {
             Section("Apple Calendar") {
                 if let error = reminder.calendarError { Text(error).foregroundStyle(.orange) }
+                else if reminder.scheduledAt == nil { Text("Add a date to update Calendar. Existing events are kept.") }
                 else if reminder.calendarEventID == nil || reminder.calendarNeedsSync == true { Text("Calendar update pending") }
                 else { Label("Linked to Calendar", systemImage: "calendar") }
                 Button("Retry Calendar sync") { store.retryCalendar(reminder) }

@@ -109,18 +109,18 @@ final class VoiceCreationTests: XCTestCase {
         let retried = try await retrying.confirm(draft: draft, now: now) { _, _ in id }
         XCTAssertEqual(retried, id)
     }
-    func testVersion040StoreKeepsTasksAlarmAndCalendarIdentity() throws {
+    func testVersion050StoreKeepsTasksAlarmAndCalendarIdentity() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let config = ModelConfiguration(url: directory.appendingPathComponent("legacy040.store"))
+        let config = ModelConfiguration(url: directory.appendingPathComponent("legacy050.store"))
         let date = Date(timeIntervalSince1970: 1_900_000_000)
         let id = UUID()
         do {
-            let old = try ModelContainer(for: Legacy040.Reminder.self, configurations: config)
+            let old = try ModelContainer(for: Legacy050.Reminder.self, configurations: config)
             let context = ModelContext(old)
-            context.insert(Legacy040.Reminder(id: id, date: date))
-            let completed = Legacy040.Reminder(id: UUID(), date: date)
+            context.insert(Legacy050.Reminder(id: id, date: date))
+            let completed = Legacy050.Reminder(id: UUID(), date: date)
             completed.completedAt = date
             context.insert(completed)
             try context.save()
@@ -129,7 +129,7 @@ final class VoiceCreationTests: XCTestCase {
         let items = try ModelContext(current).fetch(FetchDescriptor<Reminder>())
         XCTAssertEqual(items.count, 2)
         let saved = try XCTUnwrap(items.first { $0.id == id })
-        XCTAssertEqual(saved.title, "Legacy 0.4.0")
+        XCTAssertEqual(saved.title, "Legacy 0.5.0")
         XCTAssertEqual(saved.alarmID, id)
         XCTAssertEqual(saved.scheduledAt, date)
         XCTAssertEqual(saved.createdAt, date.addingTimeInterval(-60))
@@ -138,6 +138,7 @@ final class VoiceCreationTests: XCTestCase {
         XCTAssertEqual(saved.sound, .experimentalVibrationOnly)
         XCTAssertEqual(saved.alarmDisabled, false)
         XCTAssertEqual(saved.alarmNeedsUpdate, true)
+        XCTAssertNil(saved.alarmActionsVersion)
         XCTAssertEqual(saved.calendarEnabled, true)
         XCTAssertEqual(saved.calendarIdentifier, "calendar")
         XCTAssertEqual(saved.calendarEventID, "event")
@@ -166,8 +167,8 @@ final class VoiceCreationTests: XCTestCase {
     }
 }
 
-// Frozen 0.4.0 persisted fields. 0.5.0 deliberately adds no model properties.
-private enum Legacy040 {
+// Frozen schema used by 0.4.0 and the earlier 0.5.0 builds, before optional deadlines.
+private enum Legacy050 {
     @Model final class Reminder {
         @Attribute(.unique) var id: UUID
         var title: String
@@ -192,7 +193,7 @@ private enum Legacy040 {
 
         init(id: UUID, date: Date) {
             self.id = id
-            title = "Legacy 0.4.0"
+            title = "Legacy 0.5.0"
             scheduledAt = date
             createdAt = date.addingTimeInterval(-60)
             nextAlarmAt = date.addingTimeInterval(300)
@@ -497,5 +498,48 @@ final class SpeechTranscriptTests: XCTestCase {
         speech.acceptLegacy("Напомни завтра забрать пакет")
         speech.acceptLegacy("Напомни завтра забрать посылку")
         XCTAssertEqual(speech.text, "Напомни завтра забрать посылку")
+    }
+}
+
+@MainActor
+final class OptionalVoiceTaskTests: XCTestCase {
+    func testManualFieldsSurviveNewInterpretationAndResetForNextRecording() {
+        let date = Date(timeIntervalSince1970: 1_900_000_000)
+        var fields = VoiceTaskFields()
+        fields.apply(ReminderDraft(sourceText: "first", title: "Parsed", date: date, warnings: []))
+        fields.editTitle("User title")
+        fields.editDate(date.addingTimeInterval(600))
+        fields.editAlarm(false)
+        fields.apply(ReminderDraft(sourceText: "corrected", title: "New parser title", date: date.addingTimeInterval(1200), warnings: []))
+        XCTAssertEqual(fields.title, "User title")
+        XCTAssertEqual(fields.date, date.addingTimeInterval(600))
+        XCTAssertFalse(fields.alarmEnabled)
+        fields = VoiceTaskFields()
+        fields.apply(ReminderDraft(sourceText: "undated", title: "Undated", date: nil, warnings: [.missingDate]))
+        XCTAssertEqual(fields.title, "Undated")
+        XCTAssertNil(fields.date)
+        XCTAssertFalse(fields.alarmEnabled)
+    }
+
+    func testUndatedTaskAndDisplayedFutureDateNeedNoHiddenConfirmation() async throws {
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        let noDate = ReminderDraft(sourceText: "Позвонить маме", title: "Позвонить маме", date: nil, warnings: [.missingDate])
+        XCTAssertTrue(noDate.canCreate(now: now, alarmEnabled: false))
+        XCTAssertFalse(noDate.canCreate(now: now, alarmEnabled: true))
+        var dated = noDate
+        dated.date = now.addingTimeInterval(600)
+        XCTAssertTrue(dated.canCreate(now: now, alarmEnabled: true))
+        let creation = VoiceCreation()
+        var saves = 0
+        let id = UUID()
+        let created = try await creation.confirm(draft: noDate, now: now, alarmEnabled: false) { title, date in
+            saves += 1
+            XCTAssertEqual(title, "Позвонить маме")
+            XCTAssertNil(date)
+            return id
+        }
+        XCTAssertEqual(created, id)
+        _ = try await creation.confirm(draft: noDate, now: now, alarmEnabled: false) { _, _ in saves += 1; return UUID() }
+        XCTAssertEqual(saves, 1)
     }
 }

@@ -11,6 +11,7 @@ final class ReminderStore {
     private let calendar: CalendarService
     private(set) var lastCreatedID: UUID?
     private(set) var registeredDates: [UUID: Date] = [:]
+    private(set) var alertingIDs: Set<UUID> = []
     private let saveContext: (ModelContext) throws -> Void
     private(set) var isBusy = false
     var errorMessage: String?
@@ -25,17 +26,18 @@ final class ReminderStore {
     }
 
     /// True means the task was saved, even when its alarm failed.
-    func create(title: String, date: Date, sound: AlarmSound? = nil, calendarEnabled: Bool = false, calendarID: String? = nil) async -> Bool {
+    func create(title: String, date: Date? = nil, sound: AlarmSound? = nil, calendarEnabled: Bool = false, calendarID: String? = nil, alarmEnabled: Bool? = nil) async -> Bool {
         guard !isBusy else { return false }
         isBusy = true
         defer { isBusy = false }
         let reminder: Reminder
         lastCreatedID = nil
         do {
-            reminder = try Reminder(title: title, scheduledAt: date)
+            reminder = try Reminder(title: title, scheduledAt: date, alarmEnabled: alarmEnabled)
             reminder.soundModeID = (sound ?? AlarmSound.preferred()).rawValue
             reminder.calendarEnabled = calendarEnabled
             reminder.calendarIdentifier = calendarID
+            reminder.alarmNeedsUpdate = reminder.alarmDisabled != true
             context.insert(reminder)
             // This durable ID also covers termination during authorization/scheduling.
             try saveContext(context)
@@ -46,17 +48,20 @@ final class ReminderStore {
             errorMessage = String(localized: "Could not save the reminder. Try again.")
             return false
         }
-        do {
-            try await alarms.authorize()
-            try await alarms.schedule(reminder.alarmID, reminder.title, reminder.scheduledAt, reminder.sound)
-            reminder.alarmState = .registered
-            registeredDates[reminder.alarmID] = reminder.scheduledAt
-            reminder.alarmError = nil
-        } catch {
-            reminder.alarmState = .failed
-            reminder.alarmError = friendlyMessage(error)
-            log(error)
-            errorMessage = String(localized: "Reminder saved, but its alarm is not confirmed. Check alarm access in Settings and choose a time to retry.")
+        if reminder.alarmDisabled != true, let date {
+            do {
+                try await alarms.authorize()
+                let current = try incompleteReminder(id: reminder.id)
+                guard current.alarmDisabled != true else { throw SnoozeError.disabled }
+                try await replaceAlarm(current, date: date, cancelExisting: false)
+            } catch {
+                if reminder.completedAt == nil && reminder.alarmDisabled != true {
+                    reminder.alarmState = .failed
+                    reminder.alarmError = friendlyMessage(error)
+                    errorMessage = String(localized: "Task saved, but its alarm could not be enabled. Open the task to retry.")
+                }
+                log(error)
+            }
         }
         // The initial insert is already durable. Never leave creation retrying a new UUID.
         guard saveChanges() else { return true }
@@ -65,7 +70,7 @@ final class ReminderStore {
     }
 
     /// A durable pending date bridges the non-atomic database and system operations.
-    func snooze(id: UUID, until date: Date) async -> Bool {
+    func snooze(id: UUID, until date: Date, forceUpdate: Bool = false, requireExisting: Bool = false) async -> Bool {
         guard !isBusy else { return false }
         isBusy = true
         errorMessage = nil
@@ -73,13 +78,16 @@ final class ReminderStore {
         var pendingReminder: Reminder?
         do {
             try Reminder.validateSnoozeDate(date)
-            _ = try incompleteReminder(id: id)
+            let wasDisabled = try incompleteReminder(id: id).alarmDisabled == true
             // Never remove the old registration before permission is granted.
             try await alarms.authorize()
             try Reminder.validateSnoozeDate(date)
             let reminder = try incompleteReminder(id: id) // Authorization can suspend.
+            guard wasDisabled || reminder.alarmDisabled != true else { throw SnoozeError.disabled }
             let systemDate = try alarms.scheduledAlarms()[reminder.alarmID]
-            if systemDate != date || reminder.alarmNeedsUpdate == true {
+            // An upgrade is allowed only while the exact old registration still exists.
+            if requireExisting && systemDate != date { return false }
+            if forceUpdate || systemDate != date || reminder.alarmNeedsUpdate == true {
                 reminder.pendingSnoozeAt = date
                 reminder.alarmDisabled = false
                 reminder.alarmState = .unconfirmed
@@ -97,7 +105,7 @@ final class ReminderStore {
             reminder.alarmError = nil
             return saveChanges()
         } catch {
-            if let reminder = pendingReminder {
+            if let reminder = pendingReminder, reminder.completedAt == nil, reminder.alarmDisabled != true {
                 reminder.alarmState = .failed
                 reminder.alarmError = friendlyMessage(error)
                 guard saveChanges() else { return false }
@@ -119,8 +127,8 @@ final class ReminderStore {
         return date
     }
 
-    /// Metadata changes preserve a snooze; moving the original deadline resets it.
-    func edit(id: UUID, title: String, date: Date, sound: AlarmSound, calendarEnabled: Bool, calendarID: String?) async -> Bool {
+    /// Metadata changes preserve Snooze; an explicit deadline change resets it.
+    func edit(id: UUID, title: String, date: Date?, sound: AlarmSound, calendarEnabled: Bool, calendarID: String?, alarmEnabled: Bool? = nil) async -> Bool {
         guard !isBusy else { return false }
         isBusy = true
         errorMessage = nil
@@ -130,31 +138,43 @@ final class ReminderStore {
             let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !title.isEmpty else { throw Reminder.ValidationError.emptyTitle }
             let item = try reminder(id: id)
+            let enabled = (alarmEnabled ?? (item.alarmDisabled != true)) && item.completedAt == nil
+            let wasDisabled = item.alarmDisabled == true
             let moved = date != item.scheduledAt
-            if moved { try Reminder.validateSnoozeDate(date) }
+            if let date, !date.timeIntervalSince1970.isFinite { throw Reminder.ValidationError.pastDate }
             let metadataChanged = title != item.title || sound != item.sound
-            let dates = metadataChanged || moved || item.alarmNeedsUpdate == true ? try alarms.scheduledAlarms() : registeredDates
+            let dates = enabled ? try alarms.scheduledAlarms() : registeredDates
+            let cancellationNeeded = item.alarmDisabled != true || item.alarmNeedsUpdate == true || dates[item.alarmID] != nil || alertingIDs.contains(item.alarmID)
             let existingFuture = dates[item.alarmID].flatMap { $0 > .now ? $0 : nil }
-            var target = moved ? date : (item.pendingSnoozeAt ?? existingFuture)
-            var needsAlarm = item.completedAt == nil && (moved || item.alarmNeedsUpdate == true || (metadataChanged && existingFuture != nil && item.alarmDisabled != true))
+            var target = moved || wasDisabled ? date : (item.pendingSnoozeAt ?? existingFuture ?? (item.alarmNeedsUpdate == true ? date : nil))
+            var needsAlarm = enabled && (moved || wasDisabled || item.alarmNeedsUpdate == true || (metadataChanged && existingFuture != nil))
+            if enabled && (moved || wasDisabled) {
+                guard let date else { throw Reminder.ValidationError.pastDate }
+                try Reminder.validateSnoozeDate(date)
+            }
             if needsAlarm { try await alarms.authorize() }
             let current = try reminder(id: id)
-            // Completion during permission acquisition must never restart its alarm.
             guard !needsAlarm || current.completedAt == nil else { throw SnoozeError.completed }
-            if needsAlarm && !moved && current.alarmNeedsUpdate != true {
-                // Native Stop can run while authorization suspends; metadata edits must not resurrect it.
-                let actual = try alarms.scheduledAlarms()[current.alarmID]
-                target = actual.flatMap { $0 > .now ? $0 : nil }
+            guard !needsAlarm || wasDisabled || current.alarmDisabled != true else { throw SnoozeError.disabled }
+            if needsAlarm && !moved && !wasDisabled && current.alarmNeedsUpdate != true {
+                target = try alarms.scheduledAlarms()[current.alarmID].flatMap { $0 > .now ? $0 : nil }
                 needsAlarm = target != nil
-                if target == nil { registeredDates.removeValue(forKey: current.alarmID) }
             }
-            if needsAlarm, let target { try Reminder.validateSnoozeDate(target) }
+            if needsAlarm {
+                guard let target else { throw Reminder.ValidationError.pastDate }
+                try Reminder.validateSnoozeDate(target)
+            }
             current.applyEdit(title: title, date: date, sound: sound)
             current.calendarEnabled = calendarEnabled
             if current.calendarEventID == nil && current.calendarEventDate == nil { current.calendarIdentifier = calendarID }
             current.calendarNeedsSync = calendarEnabled
             if moved { current.nextAlarmAt = nil; current.pendingSnoozeAt = nil }
-            if needsAlarm {
+            if !enabled {
+                current.alarmDisabled = true
+                current.nextAlarmAt = nil
+                current.pendingSnoozeAt = nil
+                current.alarmNeedsUpdate = cancellationNeeded // Persist cancellation before touching AlarmKit.
+            } else if needsAlarm {
                 current.pendingSnoozeAt = target
                 current.alarmNeedsUpdate = true
                 current.alarmDisabled = false
@@ -162,18 +182,19 @@ final class ReminderStore {
             }
             guard saveChanges() else { return false }
             savedReminder = current
-            if needsAlarm, let target {
+            if !enabled && cancellationNeeded { try cancelRegistration(current) }
+            else if needsAlarm, let target {
                 try await replaceAlarm(current, date: target)
                 current.nextAlarmAt = target == date ? nil : target
-                guard saveChanges() else { return false }
             }
+            guard saveChanges() else { return false }
             return syncCalendar(current)
         } catch {
-            if let item = savedReminder {
+            if let item = savedReminder, item.completedAt == nil {
                 item.alarmState = .failed
                 item.alarmError = friendlyMessage(error)
                 _ = saveChanges()
-                _ = syncCalendar(item) // Calendar failure cannot undo the locally saved edit.
+                _ = syncCalendar(item)
             }
             log(error)
             errorMessage = friendlyMessage(error)
@@ -181,36 +202,103 @@ final class ReminderStore {
         }
     }
 
-    private func replaceAlarm(_ reminder: Reminder, date: Date) async throws {
-        try alarms.cancel(reminder.alarmID)
-        registeredDates.removeValue(forKey: reminder.alarmID)
-        try await alarms.schedule(reminder.alarmID, reminder.title, date, reminder.sound)
-        registeredDates[reminder.alarmID] = date
-        reminder.pendingSnoozeAt = nil
-        reminder.alarmNeedsUpdate = false
-        reminder.alarmState = .registered
-        reminder.alarmError = nil
-    }
-
-    func disableAlarm(_ reminder: Reminder) {
-        guard !isBusy, reminder.completedAt == nil else { return }
+    private func replaceAlarm(_ reminder: Reminder, date: Date, cancelExisting: Bool = true) async throws {
+        let id = reminder.id
+        let alarmID = reminder.alarmID
+        guard reminder.completedAt == nil else { throw SnoozeError.completed }
+        guard reminder.alarmDisabled != true else { throw SnoozeError.disabled }
+        try Reminder.validateSnoozeDate(date)
+        if cancelExisting { try alarms.cancel(alarmID) }
+        registeredDates.removeValue(forKey: alarmID)
+        alertingIDs.remove(alarmID)
+        // Stop/disable/delete can interleave while schedule() suspends. A late
+        // system registration must not resurrect the task's alarm.
         do {
-            try alarms.cancel(reminder.alarmID)
-            registeredDates.removeValue(forKey: reminder.alarmID)
-            reminder.alarmDisabled = true
-            reminder.alarmNeedsUpdate = false
-            reminder.pendingSnoozeAt = nil
-            reminder.alarmState = .absent
-            reminder.alarmError = nil
-            saveChanges()
+            try await alarms.schedule(alarmID, reminder.title, date, reminder.sound)
+            let current = try incompleteReminder(id: id)
+            guard current.alarmDisabled != true else { throw SnoozeError.disabled }
+            registeredDates[alarmID] = date
+            current.pendingSnoozeAt = nil
+            current.alarmNeedsUpdate = false
+            current.alarmActionsVersion = AlarmService.actionsVersion
+            current.alarmState = .registered
+            current.alarmError = nil
         } catch {
-            log(error)
-            errorMessage = String(localized: "Could not turn off the alarm. The task is unchanged. Try again.")
+            let schedulingError = error
+            do { try alarms.cancel(alarmID) }
+            catch {
+                if let item = try context.fetch(FetchDescriptor<Reminder>(predicate: #Predicate { $0.id == id })).first {
+                    item.alarmNeedsUpdate = true
+                    item.alarmError = String(localized: "Alarm cancellation is pending. Open Nudge to retry.")
+                    _ = saveChanges()
+                }
+                throw error
+            }
+            throw schedulingError
         }
     }
 
-    private func calendarRequest(_ reminder: Reminder, allowCreate: Bool = false) -> CalendarRequest {
-        CalendarRequest(id: reminder.id, title: reminder.title, date: reminder.scheduledAt,
+    private func cancelRegistration(_ reminder: Reminder) throws {
+        try alarms.cancel(reminder.alarmID)
+        registeredDates.removeValue(forKey: reminder.alarmID)
+        alertingIDs.remove(reminder.alarmID)
+        reminder.alarmNeedsUpdate = false
+        reminder.alarmState = .absent
+        reminder.alarmError = nil
+    }
+
+    @discardableResult
+    func disableAlarm(_ reminder: Reminder) -> Bool {
+        guard !isBusy, reminder.completedAt == nil else { return false }
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        reminder.alarmDisabled = true
+        reminder.alarmNeedsUpdate = true
+        reminder.pendingSnoozeAt = nil
+        reminder.nextAlarmAt = nil
+        guard saveChanges() else { return false }
+        do {
+            try cancelRegistration(reminder)
+            return saveChanges()
+        } catch {
+            reminder.alarmError = String(localized: "Alarm cancellation is pending. Open Nudge to retry.")
+            _ = saveChanges()
+            log(error)
+            errorMessage = reminder.alarmError
+            return false
+        }
+    }
+
+    func enableAlarm(id: UUID) async -> Bool {
+        do {
+            let item = try incompleteReminder(id: id)
+            guard let date = item.scheduledAt else { throw Reminder.ValidationError.pastDate }
+            try Reminder.validateSnoozeDate(date)
+            return await snooze(id: id, until: date)
+        } catch { errorMessage = friendlyMessage(error); return false }
+    }
+
+    func isAlerting(_ reminder: Reminder) -> Bool {
+        reminder.completedAt == nil && alertingIDs.contains(reminder.alarmID)
+    }
+
+    /// Reconfigure only real future registrations from older versions; never
+    /// recreate an absent/disabled alarm, and retain the stable alarm ID/date.
+    func upgradeAlarmActions() async {
+        guard !isBusy else { return }
+        do {
+            let dates = try alarms.scheduledAlarms()
+            let items = try context.fetch(FetchDescriptor<Reminder>())
+            for item in items where item.completedAt == nil && item.alarmDisabled != true
+                && item.alarmActionsVersion != AlarmService.actionsVersion && item.alarmNeedsUpdate != true {
+                if let date = dates[item.alarmID], date > .now { _ = await snooze(id: item.id, until: date, forceUpdate: true, requireExisting: true) }
+            }
+        } catch { log(error) }
+    }
+
+    private func calendarRequest(_ reminder: Reminder, date: Date, allowCreate: Bool = false) -> CalendarRequest {
+        CalendarRequest(id: reminder.id, title: reminder.title, date: date,
             calendarID: reminder.calendarIdentifier, eventID: reminder.calendarEventID,
             externalID: reminder.calendarExternalID, previousDate: reminder.calendarEventDate, allowCreate: allowCreate)
     }
@@ -218,7 +306,12 @@ final class ReminderStore {
     @discardableResult
     private func syncCalendar(_ reminder: Reminder) -> Bool {
         guard reminder.calendarEnabled == true else { return true }
-        let request = calendarRequest(reminder, allowCreate: reminder.calendarEventDate == nil && reminder.calendarEventID == nil)
+        guard let date = reminder.scheduledAt else {
+            reminder.calendarNeedsSync = true // Keep any existing event until a deadline is supplied.
+            reminder.calendarError = nil
+            return saveChanges()
+        }
+        let request = calendarRequest(reminder, date: date, allowCreate: reminder.calendarEventDate == nil && reminder.calendarEventID == nil)
         do {
             guard calendar.hasAccess() else { throw CalendarError.permission }
             reminder.calendarNeedsSync = true
@@ -271,30 +364,53 @@ final class ReminderStore {
     }
 
     private enum SnoozeError: LocalizedError {
-        case missing, completed
+        case missing, completed, disabled
         var errorDescription: String? {
             switch self {
             case .missing: String(localized: "This reminder was deleted.")
             case .completed: String(localized: "This task is already completed.")
+            case .disabled: String(localized: "The alarm was turned off.")
             }
         }
     }
 
-    func complete(_ reminder: Reminder) {
-        guard !isBusy, reminder.completedAt == nil else { return }
+    @discardableResult
+    func complete(_ reminder: Reminder) -> Bool {
+        guard !isBusy else { return false }
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+        let cancellationNeeded = reminder.alarmDisabled != true || reminder.alarmNeedsUpdate == true || registeredDates[reminder.alarmID] != nil || alertingIDs.contains(reminder.alarmID)
+        if reminder.completedAt == nil { reminder.completedAt = .now }
+        reminder.alarmDisabled = true
+        reminder.alarmNeedsUpdate = cancellationNeeded
+        reminder.pendingSnoozeAt = nil
+        reminder.nextAlarmAt = nil
+        // Completion must survive a killed app or a subsequent cancellation error.
+        guard saveChanges() else { return false }
+        guard cancellationNeeded else { return true }
         do {
-            try alarms.cancel(reminder.alarmID)
-            registeredDates.removeValue(forKey: reminder.alarmID)
-            reminder.alarmNeedsUpdate = false
-            reminder.completedAt = .now
-            reminder.pendingSnoozeAt = nil
-            reminder.alarmState = .absent
-            reminder.alarmError = nil
-            saveChanges()
+            try cancelRegistration(reminder)
+            return saveChanges()
         } catch {
+            reminder.alarmError = String(localized: "Task completed. Its alarm could not be cancelled yet; open Nudge to retry.")
+            _ = saveChanges()
             log(error)
-            errorMessage = String(localized: "Could not cancel the alarm. Task remains incomplete. Try again.")
+            errorMessage = reminder.alarmError
+            return false
         }
+    }
+
+    /// Same durable operation for a cold LiveActivityIntent and list completion.
+    func complete(id: UUID) throws {
+        let descriptor = FetchDescriptor<Reminder>(predicate: #Predicate { $0.id == id })
+        guard let item = try context.fetch(descriptor).first else { return } // A deleted task stays deleted.
+        guard complete(item) else { throw CompletionError.failed }
+    }
+
+    private enum CompletionError: LocalizedError {
+        case failed
+        var errorDescription: String? { String(localized: "Task completion could not finish. Open Nudge to check and retry.") }
     }
 
     @discardableResult
@@ -304,7 +420,8 @@ final class ReminderStore {
             try alarms.cancel(reminder.alarmID)
             registeredDates.removeValue(forKey: reminder.alarmID)
             if !keepCalendarEvent && (reminder.calendarEventID != nil || reminder.calendarEventDate != nil) {
-                try calendar.remove(calendarRequest(reminder))
+                guard let date = reminder.scheduledAt ?? reminder.calendarEventDate else { throw CalendarError.missing }
+                try calendar.remove(calendarRequest(reminder, date: date))
             }
             context.delete(reminder)
             return saveChanges()
@@ -322,7 +439,19 @@ final class ReminderStore {
         do {
             let dates = try alarms.scheduledAlarms()
             registeredDates = dates
-            for reminder in try context.fetch(FetchDescriptor<Reminder>()) where reminder.completedAt == nil {
+            alertingIDs = try alarms.alertingAlarms()
+            for reminder in try context.fetch(FetchDescriptor<Reminder>()) {
+                if reminder.completedAt != nil || reminder.alarmDisabled == true {
+                    if reminder.alarmNeedsUpdate == true || dates[reminder.alarmID] != nil || alertingIDs.contains(reminder.alarmID) {
+                        do { try cancelRegistration(reminder) }
+                        catch {
+                            reminder.alarmNeedsUpdate = true
+                            reminder.alarmError = String(localized: "Alarm cancellation is pending. Open Nudge to retry.")
+                            log(error)
+                        }
+                    }
+                    continue
+                }
                 if reminder.alarmNeedsUpdate == true {
                     reminder.alarmState = .failed
                     reminder.alarmError = String(localized: "The task was saved, but its alarm needs an update. Choose an alarm time to retry.")
@@ -346,9 +475,15 @@ final class ReminderStore {
             saveChanges()
         } catch {
             registeredDates = [:]
+            alertingIDs = []
             // Stale registration must never be presented as a fresh confirmation.
             log(error)
-            errorMessage = String(localized: "Could not check system alarms. Reopen Nudge to retry.")
+            do {
+                let items = try context.fetch(FetchDescriptor<Reminder>())
+                if items.contains(where: { ($0.completedAt == nil && $0.alarmDisabled != true) || $0.alarmNeedsUpdate == true }) {
+                    errorMessage = String(localized: "Could not check system alarms. Reopen Nudge to retry.")
+                }
+            } catch { errorMessage = String(localized: "Reminders unavailable") }
         }
     }
 
@@ -361,7 +496,7 @@ final class ReminderStore {
 
     private func log(_ error: Error) {
         Logger(subsystem: "com.pavlovilya.nudge", category: "ReminderStore")
-            .error("Operation failed: \(error.localizedDescription, privacy: .public)")
+            .error("Operation failed domain=\((error as NSError).domain, privacy: .public) code=\((error as NSError).code, privacy: .public)")
     }
 
     @discardableResult
