@@ -64,10 +64,12 @@ jobs:
         run: |
           mkdir -p sdk-reference
           sdk_path=$(xcrun --sdk iphoneos --show-sdk-path)
-          for framework in AlarmKit AppIntents ActivityKit CoreHaptics AVFAudio AudioToolbox; do
+          for framework in AlarmKit AppIntents ActivityKit CoreHaptics AVFAudio AudioToolbox EventKit; do
             mkdir -p "sdk-reference/$framework"
             find "$sdk_path/System/Library/Frameworks/$framework.framework/Modules" -name '*.swiftinterface' -exec cp {} "sdk-reference/$framework/" \;
           done
+
+          cp -R "$sdk_path/System/Library/Frameworks/EventKit.framework/Headers" sdk-reference/EventKit-Headers
 
       - name: Upload SDK reference
         if: matrix.artifact == 'iOS-Simulator'
@@ -106,14 +108,17 @@ jobs:
           with (app / "Info.plist").open("rb") as source:
               info = plistlib.load(source)
           assert info["CFBundleIdentifier"] == "com.pavlovilya.nudge"
-          assert info["CFBundleShortVersionString"] == "0.3.0"
-          assert info["CFBundleVersion"] == "4"
+          assert info["CFBundleShortVersionString"] == "0.4.0"
+          assert info["CFBundleVersion"] == "5"
           assert info["MinimumOSVersion"] == "26.0"
           assert info["NSAlarmKitUsageDescription"].strip()
+          assert info["NSCalendarsFullAccessUsageDescription"].strip()
+          assert any("nudge" in entry.get("CFBundleURLSchemes", []) for entry in info["CFBundleURLTypes"])
           assert "audio" not in info.get("UIBackgroundModes", [])
           for language in ("ru", "en"):
               assert (app / f"{language}.lproj/Localizable.strings").is_file()
-              assert (app / f"{language}.lproj/InfoPlist.strings").is_file()
+              with (app / f"{language}.lproj/InfoPlist.strings").open("rb") as source:
+                  assert plistlib.load(source)["NSCalendarsFullAccessUsageDescription"].strip()
           for filename in ("nudge-soft.caf", "nudge-prominent.caf", "nudge-silent.caf"):
               sound = app / filename
               assert sound.is_file(), f"Missing sound resource: {sound}"
@@ -137,7 +142,7 @@ jobs:
           if [ "$PRODUCTS" = "Release-iphoneos" ]; then
             mkdir -p ipa-stage/Payload
             ditto "build/Build/Products/$PRODUCTS/Nudge.app" ipa-stage/Payload/Nudge.app
-            (cd ipa-stage && /usr/bin/zip -q -r ../artifacts/Nudge-0.3.0-4-Unsigned.ipa Payload)
+            (cd ipa-stage && /usr/bin/zip -q -r ../artifacts/Nudge-0.4.0-5-Unsigned.ipa Payload)
           fi
 
       - name: Upload application artifacts

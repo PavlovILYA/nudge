@@ -42,6 +42,6 @@ enum AlarmSound: String, CaseIterable, Identifiable, Sendable {
     }
 
     static var experimentalWarning: String {
-        String(localized: "Experimental: a silent file is requested. The system may play its default sound; vibration is not guaranteed. Verify on a real iPhone.")
+        String(localized: "Silent CAF worked with vibration on a tested iPhone 13. Other devices and settings may differ; silence and vibration are not guaranteed.")
     }
 }

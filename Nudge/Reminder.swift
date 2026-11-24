@@ -11,6 +11,15 @@ final class Reminder {
     var nextAlarmAt: Date?
     var pendingSnoozeAt: Date?
     var soundModeID: String?
+    var alarmDisabled: Bool?
+    var alarmNeedsUpdate: Bool?
+    var calendarEnabled: Bool?
+    var calendarIdentifier: String?
+    var calendarEventID: String?
+    var calendarExternalID: String?
+    var calendarEventDate: Date?
+    var calendarNeedsSync: Bool?
+    var calendarError: String?
     var completedAt: Date?
     private(set) var alarmID: UUID
     var alarmState: AlarmRegistration
@@ -26,6 +35,12 @@ final class Reminder {
         self.createdAt = now
         self.alarmID = id
         self.alarmState = .unconfirmed
+    }
+
+    func applyEdit(title: String, date: Date, sound: AlarmSound) {
+        self.title = title
+        self.scheduledAt = date
+        self.soundModeID = sound.rawValue
     }
 
     var sound: AlarmSound { AlarmSound(rawValue: soundModeID ?? "") ?? .systemDefault }

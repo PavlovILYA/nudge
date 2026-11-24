@@ -17,12 +17,13 @@ struct SoundSettingsView: View {
                 } footer: {
                     Text("Applies only to new reminders. Existing reminders keep their saved sound.")
                 }
-                SoundDetails(sound: defaultSound)
+                SoundDetails(sound: defaultSound, alwaysWarn: true)
+                CalendarSettingsSection()
             }
             .navigationTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Close") { dismiss() }
                 }
             }
         }
@@ -33,21 +34,21 @@ struct SoundSettingsView: View {
 struct SoundDetails: View {
     @Environment(\.scenePhase) private var scenePhase
     let sound: AlarmSound
+    var alwaysWarn = false
+    @AppStorage("experimentalSoundAcknowledged") private var acknowledged = false
     @State private var preview = SoundPreview()
 
     var body: some View {
         Section {
-            if sound == .experimentalVibrationOnly {
+            if sound == .experimentalVibrationOnly && (alwaysWarn || !acknowledged) {
                 Label(AlarmSound.experimentalWarning, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
+                if !acknowledged { Button("Got it") { acknowledged = true } }
             }
             if sound.canPreview {
                 Button("Preview", systemImage: "play.circle") { preview.play(sound) }
                     .frame(minHeight: 44)
             }
-            LabeledContent("AlarmKit parameter", value: sound.diagnostic)
-                .font(.caption)
-                .textSelection(.enabled)
             if let error = preview.errorMessage { Text(error).foregroundStyle(.red) }
         } footer: {
             if sound.canPreview {
