@@ -109,11 +109,28 @@ jobs:
           with (app / "Info.plist").open("rb") as source:
               info = plistlib.load(source)
           assert info["CFBundleIdentifier"] == "com.pavlovilya.nudge"
-          assert info["CFBundleShortVersionString"] == "0.4.0"
-          assert info["CFBundleVersion"] == "5"
+          assert info["CFBundleShortVersionString"] == "0.5.0"
+          assert info["CFBundleVersion"] == "6"
           assert info["MinimumOSVersion"] == "26.0"
           assert info["NSAlarmKitUsageDescription"].strip()
           assert info["NSCalendarsFullAccessUsageDescription"].strip()
+          assert info["NSMicrophoneUsageDescription"].strip()
+          assert info["NSSpeechRecognitionUsageDescription"].strip()
+          assert any(item["UIApplicationShortcutItemType"] == "com.pavlovilya.nudge.voice" for item in info["UIApplicationShortcutItems"])
+          extensions = list((app / "PlugIns").glob("*.appex"))
+          assert len(extensions) == 1
+          extension = extensions[0]
+          with (extension / "Info.plist").open("rb") as source:
+              widget = plistlib.load(source)
+          assert widget["CFBundleIdentifier"] == "com.pavlovilya.nudge.VoiceWidget"
+          assert widget["CFBundleIdentifier"].startswith(info["CFBundleIdentifier"] + ".")
+          assert widget["CFBundleShortVersionString"] == info["CFBundleShortVersionString"]
+          assert widget["CFBundleVersion"] == info["CFBundleVersion"]
+          assert widget["MinimumOSVersion"] == "26.0"
+          assert widget["NSExtension"]["NSExtensionPointIdentifier"] == "com.apple.widgetkit-extension"
+          assert (extension / widget["CFBundleExecutable"]).is_file()
+          for language in ("ru", "en"):
+              assert (extension / f"{language}.lproj/Localizable.strings").is_file()
           assert any("nudge" in entry.get("CFBundleURLSchemes", []) for entry in info["CFBundleURLTypes"])
           assert "audio" not in info.get("UIBackgroundModes", [])
           for language in ("ru", "en"):
@@ -143,7 +160,7 @@ jobs:
           if [ "$PRODUCTS" = "Release-iphoneos" ]; then
             mkdir -p ipa-stage/Payload
             ditto "build/Build/Products/$PRODUCTS/Nudge.app" ipa-stage/Payload/Nudge.app
-            (cd ipa-stage && /usr/bin/zip -q -r ../artifacts/Nudge-0.4.0-5-Unsigned.ipa Payload)
+            (cd ipa-stage && /usr/bin/zip -q -r ../artifacts/Nudge-0.5.0-6-Unsigned.ipa Payload)
           fi
 
       - name: Upload application artifacts

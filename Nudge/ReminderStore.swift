@@ -9,6 +9,7 @@ final class ReminderStore {
     private let context: ModelContext
     private let alarms: AlarmService
     private let calendar: CalendarService
+    private(set) var lastCreatedID: UUID?
     private(set) var registeredDates: [UUID: Date] = [:]
     private let saveContext: (ModelContext) throws -> Void
     private(set) var isBusy = false
@@ -29,6 +30,7 @@ final class ReminderStore {
         isBusy = true
         defer { isBusy = false }
         let reminder: Reminder
+        lastCreatedID = nil
         do {
             reminder = try Reminder(title: title, scheduledAt: date)
             reminder.soundModeID = sound.rawValue
@@ -37,6 +39,7 @@ final class ReminderStore {
             context.insert(reminder)
             // This durable ID also covers termination during authorization/scheduling.
             try saveContext(context)
+            lastCreatedID = reminder.id
         } catch {
             context.rollback()
             log(error)

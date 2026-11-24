@@ -1952,6 +1952,550 @@
           }
         }
       }
+    },
+    "Voice reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Голосовое напоминание"
+          }
+        }
+      }
+    },
+    "Record reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать напоминание"
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт запись"
+          }
+        }
+      }
+    },
+    "Speak one reminder in Russian, then check it before creating.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speak one reminder in Russian, then check it before creating."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Произнесите одно напоминание по-русски и проверьте результат перед созданием."
+          }
+        }
+      }
+    },
+    "Stop recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop recording"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить запись"
+          }
+        }
+      }
+    },
+    "Cancel recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel recording"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить запись"
+          }
+        }
+      }
+    },
+    "Preparing offline recognition…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing offline recognition…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка локального распознавания…"
+          }
+        }
+      }
+    },
+    "Processing…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обработка…"
+          }
+        }
+      }
+    },
+    "Transcript": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcript"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распознанный текст"
+          }
+        }
+      }
+    },
+    "You can type or correct the phrase. Interpretation updates after editing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can type or correct the phrase. Interpretation updates after editing."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно ввести или исправить фразу. После изменения текста результат обновится."
+          }
+        }
+      }
+    },
+    "Check the reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте напоминание"
+          }
+        }
+      }
+    },
+    "Repeating commands are not supported. Only a one-time reminder can be created here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeating commands are not supported. Only a one-time reminder can be created here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команды с повторами не поддерживаются. Здесь можно создать только одноразовое напоминание."
+          }
+        }
+      }
+    },
+    "Interpretation is incomplete or ambiguous. Check the title and choose the correct date and time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interpretation is incomplete or ambiguous. Check the title and choose the correct date and time."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фраза разобрана не полностью или неоднозначно. Проверьте название и выберите правильные дату и время."
+          }
+        }
+      }
+    },
+    "Set date and time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set date and time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Указать дату и время"
+          }
+        }
+      }
+    },
+    "Create": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать"
+          }
+        }
+      }
+    },
+    "Record again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record again"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать ещё раз"
+          }
+        }
+      }
+    },
+    "Offline Russian recognition": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline Russian recognition"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Русский язык без интернета"
+          }
+        }
+      }
+    },
+    "Audio stays on this device. Raw recordings are not saved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio stays on this device. Raw recordings are not saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аудио остаётся на устройстве. Исходные записи не сохраняются."
+          }
+        }
+      }
+    },
+    "Install system language resources": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install system language resources"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установить системные ресурсы языка"
+          }
+        }
+      }
+    },
+    "Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загружаются только системные ресурсы Apple. Голос и текст никуда не отправляются."
+          }
+        }
+      }
+    },
+    "Check availability again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check availability again"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить доступность ещё раз"
+          }
+        }
+      }
+    },
+    "Task saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task saved"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача сохранена"
+          }
+        }
+      }
+    },
+    "Open task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть задачу"
+          }
+        }
+      }
+    },
+    "Could not interpret the phrase. Edit the text or enter the title and time manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not interpret the phrase. Edit the text or enter the title and time manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось разобрать фразу. Исправьте текст или введите название и время вручную."
+          }
+        }
+      }
+    },
+    "Check the task title and choose a future date and time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the task title and choose a future date and time."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте название задачи и выберите будущие дату и время."
+          }
+        }
+      }
+    },
+    "Offline Russian recognition is unavailable. Install system language resources if offered, or enter the text manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline Russian recognition is unavailable. Install system language resources if offered, or enter the text manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальное распознавание русского языка недоступно. Установите системные ресурсы, если эта возможность предложена, или введите текст вручную."
+          }
+        }
+      }
+    },
+    "Could not install system speech resources. Check connectivity and free storage, then retry. No speech was uploaded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not install system speech resources. Check connectivity and free storage, then retry. No speech was uploaded."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось установить системные ресурсы речи. Проверьте подключение и свободное место, затем повторите. Голос не отправлялся."
+          }
+        }
+      }
+    },
+    "Recording stopped. You can edit the partial text or record again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording stopped. You can edit the partial text or record again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись остановлена. Можно исправить частичный текст или записать фразу ещё раз."
+          }
+        }
+      }
+    },
+    "Microphone or speech permission is denied. Allow access in iOS Settings, or enter text manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone or speech permission is denied. Allow access in iOS Settings, or enter text manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет разрешения на микрофон или распознавание речи. Разрешите доступ в настройках iOS или введите текст вручную."
+          }
+        }
+      }
+    },
+    "Offline recognition could not finish. Check the text, retry recording, or type manually. No cloud recognition is used.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline recognition could not finish. Check the text, retry recording, or type manually. No cloud recognition is used."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить локальное распознавание. Проверьте текст, повторите запись или введите фразу вручную. Облачное распознавание не используется."
+          }
+        }
+      }
+    },
+    "Open the requested screen?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the requested screen?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть запрошенный экран?"
+          }
+        }
+      }
+    },
+    "Discard input and open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard input and open"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить ввод и открыть"
+          }
+        }
+      }
+    },
+    "Keep editing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep editing"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить редактирование"
+          }
+        }
+      }
+    },
+    "Unsaved input in the current screen will be discarded. Your saved tasks are kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsaved input in the current screen will be discarded. Your saved tasks are kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Несохранённый ввод на текущем экране будет потерян. Сохранённые задачи останутся."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

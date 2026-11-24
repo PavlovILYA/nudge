@@ -4,6 +4,7 @@ import SwiftUI
 
 @main
 struct NudgeApp: App {
+    @UIApplicationDelegateAdaptor(NudgeAppDelegate.self) private var appDelegate
     private let container: ModelContainer?
 
     init() {

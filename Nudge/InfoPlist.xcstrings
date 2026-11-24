@@ -32,6 +32,54 @@
           }
         }
       }
+    },
+    "NSMicrophoneUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge records a short phrase only while voice capture is open. Audio is not saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge записывает короткую фразу только на экране голосового ввода. Аудио не сохраняется."
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge uses on-device recognition to turn your phrase into an editable reminder. Cloud recognition is not used."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nudge распознаёт речь на устройстве, чтобы предложить редактируемое напоминание. Облачное распознавание не используется."
+          }
+        }
+      }
+    },
+    "VOICE_SHORTCUT_TITLE": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Голосовое напоминание"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

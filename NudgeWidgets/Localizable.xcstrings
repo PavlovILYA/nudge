@@ -1,0 +1,38 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "New reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новое напоминание"
+          }
+        }
+      }
+    },
+    "Open Nudge to record a reminder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Nudge to record a reminder."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте Nudge для голосового ввода напоминания."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

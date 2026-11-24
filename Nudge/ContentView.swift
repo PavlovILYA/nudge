@@ -8,6 +8,9 @@ struct ContentView: View {
     @Query(sort: \Reminder.scheduledAt) private var reminders: [Reminder]
     @State private var store: ReminderStore
     @State private var snoozeRequest = SnoozeRequest.shared
+    @State private var launchRequest = AppLaunchRequest.shared
+    @State private var confirmingSwitch = false
+    @State private var pendingExternal = false
     @State private var section = TaskSection.tasks
     @State private var sheet: TaskSheet?
     @State private var pendingSheet: TaskSheet?
@@ -23,7 +26,7 @@ struct ContentView: View {
         }
     }
     private enum TaskSheet: Identifiable, Equatable {
-        case create, settings, edit(UUID), snooze(UUID)
+        case create, settings, voice, edit(UUID), snooze(UUID)
         var id: String { String(describing: self) }
     }
 
@@ -99,13 +102,18 @@ struct ContentView: View {
             .navigationTitle("Nudge")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Settings", systemImage: "gearshape") { present(.settings) } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Voice reminder", systemImage: "mic") { present(.voice) }
+                }
                 ToolbarItem(placement: .primaryAction) { Button("Create reminder", systemImage: "plus") { present(.create) } }
             }
             .disabled(store.isBusy)
-            .sheet(item: $sheet, onDismiss: consumePending) { destination in
+            .sheet(item: $sheet, onDismiss: { confirmingSwitch = false; consumePending() }) { destination in
+                Group {
                 switch destination {
                 case .create: CreateReminderView(store: store)
                 case .settings: SoundSettingsView()
+                case .voice: VoiceCaptureView(store: store) { present(.edit($0)) }
                 case .edit(let id):
                     if let reminder = try? store.reminder(id: id) {
                         EditReminderView(reminder: reminder, store: store) { present(.snooze(id)) }
@@ -115,17 +123,18 @@ struct ContentView: View {
                         SnoozeView(reminder: reminder, store: store) { present(.edit(id)) }
                     }
                 }
+                }
+                .confirmationDialog("Open the requested screen?", isPresented: $confirmingSwitch, titleVisibility: .visible) {
+                    Button("Discard input and open", role: .destructive) { sheet = nil }
+                    Button("Keep editing", role: .cancel) { pendingSheet = nil; pendingExternal = false }
+                } message: { Text("Unsaved input in the current screen will be discarded. Your saved tasks are kept.") }
             }
             .alert("Nudge", isPresented: Binding(get: { store.errorMessage != nil && sheet == nil && pendingSheet == nil },
                 set: { if !$0 { store.errorMessage = nil } })) {
                 Button("OK") { store.errorMessage = nil }
             } message: { Text(store.errorMessage ?? "") }
-            .onOpenURL { url in
-                guard let id = ReminderLink.id(from: url) else {
-                    store.errorMessage = String(localized: "The reminder link is invalid."); return
-                }
-                present(.edit(id))
-            }
+            .onOpenURL { handleURL($0) }
+            .onChange(of: launchRequest.url) { _, _ in consumeLaunchRequest() }
             .onChange(of: snoozeRequest.reminderID) { _, _ in consumeAlarmRequest() }
             .onChange(of: store.isBusy) { _, busy in if !busy { consumePending() } }
             .onChange(of: scenePhase) { _, phase in if phase == .active { store.refresh(); store.refreshCalendar() } }
@@ -136,6 +145,7 @@ struct ContentView: View {
                 store.refresh()
                 store.refreshCalendar()
                 consumeAlarmRequest()
+                consumeLaunchRequest()
                 for await _ in AlarmManager.shared.alarmUpdates {
                     guard !Task.isCancelled else { return }
                     store.refresh()
@@ -147,17 +157,37 @@ struct ContentView: View {
     private func consumeAlarmRequest() {
         guard let id = snoozeRequest.reminderID else { return }
         snoozeRequest.reminderID = nil
-        present(.snooze(id))
+        present(.snooze(id), external: true)
+    }
+    private func handleURL(_ url: URL) {
+        guard let route = AppRoute(url: url) else {
+            store.errorMessage = String(localized: "The reminder link is invalid."); return
+        }
+        switch route {
+        case .voice: present(.voice, external: true)
+        case .reminder(let id): present(.edit(id), external: true)
+        }
+    }
+    private func consumeLaunchRequest() {
+        guard let url = launchRequest.url else { return }
+        launchRequest.url = nil
+        handleURL(url)
     }
     private func consumePending() {
-        guard let target = pendingSheet, !store.isBusy, sheet == nil else { return }
-        pendingSheet = nil
-        present(target)
+        guard let target = pendingSheet, !store.isBusy else { return }
+        guard sheet == nil || pendingExternal else { return }
+        let external = pendingExternal
+        pendingSheet = nil; pendingExternal = false
+        present(target, external: external)
     }
-    private func present(_ target: TaskSheet) {
-        guard !store.isBusy else { pendingSheet = target; return }
+    private func present(_ target: TaskSheet, external: Bool = false) {
         guard sheet != target else { return }
-        if sheet != nil { pendingSheet = target; sheet = nil; return }
+        guard !store.isBusy else { pendingSheet = target; pendingExternal = external; return }
+        if external, let sheet, sheet != .settings {
+            pendingSheet = target; pendingExternal = true; confirmingSwitch = true
+            return
+        }
+        if sheet != nil { pendingSheet = target; pendingExternal = external; sheet = nil; return }
         do {
             switch target {
             case .edit(let id): _ = try store.reminder(id: id)
