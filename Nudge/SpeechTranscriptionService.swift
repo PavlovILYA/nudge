@@ -105,24 +105,38 @@ final class SpeechTranscriptionService {
         guard !isBusy else { return }
         phase = .preparing
         let token = generation
-        module = nil; legacy = nil; downloadableModule = nil; downloadLocale = nil; canInstall = false; canRecord = false
+        var selected: (any SpeechModule)?
+        var download: (any SpeechModule)?
+        var downloadLocale: Locale?
+        var name = ""
         if SpeechTranscriber.isAvailable, let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) {
+            guard token == generation, !Task.isCancelled else { return }
             let candidate = SpeechTranscriber(locale: supported, preset: .progressiveTranscription)
-            if await AssetInventory.status(forModules: [candidate]) == .installed { module = candidate; backendName = "SpeechTranscriber" }
-            else { downloadableModule = candidate; downloadLocale = supported }
+            let status = await AssetInventory.status(forModules: [candidate])
+            guard token == generation, !Task.isCancelled else { return }
+            if status == .installed { selected = candidate; name = "SpeechTranscriber" }
+            else { download = candidate; downloadLocale = supported }
         }
-        if module == nil, let supported = await DictationTranscriber.supportedLocale(equivalentTo: locale) {
+        if selected == nil, let supported = await DictationTranscriber.supportedLocale(equivalentTo: locale) {
+            guard token == generation, !Task.isCancelled else { return }
             let candidate = DictationTranscriber(locale: supported, preset: .progressiveShortDictation)
-            if await AssetInventory.status(forModules: [candidate]) == .installed { module = candidate; backendName = "DictationTranscriber" }
-            else if downloadableModule == nil { downloadableModule = candidate; downloadLocale = supported }
+            let status = await AssetInventory.status(forModules: [candidate])
+            guard token == generation, !Task.isCancelled else { return }
+            if status == .installed { selected = candidate; name = "DictationTranscriber" }
+            else if download == nil { download = candidate; downloadLocale = supported }
         }
         guard token == generation, !Task.isCancelled else { return }
-        if module == nil, let recognizer = SFSpeechRecognizer(locale: locale), recognizer.supportsOnDeviceRecognition {
+        module = selected
+        downloadableModule = download
+        self.downloadLocale = downloadLocale
+        legacy = nil
+        if selected == nil, let recognizer = SFSpeechRecognizer(locale: locale), recognizer.supportsOnDeviceRecognition {
             legacy = recognizer
-            backendName = "SFSpeechRecognizer · on-device"
+            name = "SFSpeechRecognizer · on-device"
         }
-        canRecord = module != nil || legacy != nil
-        canInstall = downloadableModule != nil
+        backendName = name
+        canRecord = selected != nil || legacy != nil
+        canInstall = download != nil
         phase = .idle
         errorMessage = canRecord ? nil : String(localized: "Offline Russian recognition is unavailable. Install system language resources if offered, or enter the text manually.")
     }
@@ -134,10 +148,11 @@ final class SpeechTranscriptionService {
         do {
             if let localized = downloadLocale {
                 _ = try await AssetInventory.reserve(locale: localized) // false means already reserved, not failure.
+                guard token == generation, !Task.isCancelled else { return }
             }
-            if let installation = try await AssetInventory.assetInstallationRequest(supporting: [candidate]) {
-                try await installation.downloadAndInstall()
-            }
+            let installation = try await AssetInventory.assetInstallationRequest(supporting: [candidate])
+            guard token == generation, !Task.isCancelled else { return }
+            if let installation { try await installation.downloadAndInstall() }
             guard token == generation, !Task.isCancelled else { return }
             phase = .idle
             await prepare()
@@ -155,23 +170,30 @@ final class SpeechTranscriptionService {
         let token = generation
         text = ""; finalized = ""; firstTextLogged = false
         do {
-            guard await AVAudioApplication.requestRecordPermission() else { throw CaptureError.permission }
+            let permitted = await AVAudioApplication.requestRecordPermission()
+            guard token == generation, !Task.isCancelled else { return }
+            guard permitted else { throw CaptureError.permission }
             if module == nil {
                 let status = await withCheckedContinuation { continuation in
                     SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
                 }
+                guard token == generation, !Task.isCancelled else { return }
                 guard status == .authorized else { throw CaptureError.permission }
             }
             guard token == generation, !Task.isCancelled else { return }
             guard UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
             let naturalFormat = try microphone.configure()
             if let module {
-                guard await AssetInventory.status(forModules: [module]) == .installed else { throw CaptureError.unavailable }
+                let status = await AssetInventory.status(forModules: [module])
+                guard token == generation, !Task.isCancelled else { return }
+                guard status == .installed else { throw CaptureError.unavailable }
                 let analyzer = SpeechAnalyzer(modules: [module])
                 self.analyzer = analyzer
                 guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module], considering: naturalFormat) else { throw CaptureError.audio }
+                guard token == generation, !Task.isCancelled else { return }
                 try await analyzer.prepareToAnalyze(in: format)
-                guard token == generation, UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
+                guard token == generation, !Task.isCancelled else { return }
+                guard UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
                 try startAnalyzer(analyzer, module: module, format: format, naturalFormat: naturalFormat, token: token)
             } else {
                 guard let legacy, legacy.supportsOnDeviceRecognition, legacy.isAvailable else { throw CaptureError.unavailable }
@@ -277,6 +299,8 @@ final class SpeechTranscriptionService {
                     guard self?.generation == token, !Task.isCancelled else { return }
                     request.append(input.buffer)
                 }
+                guard self?.generation == token, !Task.isCancelled else { return }
+                request.endAudio() // All queued buffers have been appended before EOF.
             } catch { if self?.generation == token { self?.fail(error) } }
         }
     }
@@ -285,7 +309,6 @@ final class SpeechTranscriptionService {
         guard phase == .recording else { return }
         phase = .finalizing
         microphone.stop()
-        request?.endAudio()
         deadlineTask?.cancel()
         let token = generation
         deadlineTask = Task { [weak self] in

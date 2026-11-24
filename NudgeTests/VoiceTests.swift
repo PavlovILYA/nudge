@@ -32,7 +32,7 @@ final class InterpreterTests: XCTestCase {
         }
     }
     func testMissingInvalidAmbiguousAndRecurring() async throws {
-        for phrase in ["Завтра забрать посылку", "Позвонить маме", "В 18:00 позвонить", "Завтра в 9 или в 10 выйти", "Завтра и послезавтра в 9 выйти", "Каждый второй вторник в 15:00 выйти", "31 ноября в 12 выйти", "Завтра в 25:90 выйти", "Через 2 часа 10 минут выйти"] {
+        for phrase in ["Завтра забрать посылку", "Позвонить маме", "В 18:00 позвонить", "Завтра в 9 или в 10 выйти", "Завтра и послезавтра в 9 выйти", "Каждый второй вторник в 15:00 выйти", "31 ноября в 12 выйти", "Завтра в 25:90 выйти", "Через 2 часа 10 минут выйти", "Завтра в 10:5 выйти", "Завтра в 10:100 выйти", "Завтра в 15:30:45 выйти", "Завтра в 10:10:45 выйти"] {
             let draft = try await RuleBasedInterpreter().interpret(text: phrase, context: context())
             XCTAssertNil(draft.date, phrase)
             XCTAssertFalse(draft.warnings.isEmpty, phrase)
@@ -57,8 +57,53 @@ final class InterpreterTests: XCTestCase {
         let first = try await interpreter.interpret(text: "Напомни забрать посылку", context: context())
         XCTAssertNil(first.date)
         let corrected = try await interpreter.interpret(text: "Напомни завтра в 20:00 забрать посылку", context: context())
+        XCTAssertTrue(corrected.isCurrent(for: "Напомни завтра в 20:00 забрать посылку"))
+        XCTAssertFalse(corrected.isCurrent(for: "Напомни завтра в 21:00 забрать посылку"))
         XCTAssertEqual(corrected.sourceText, "Напомни завтра в 20:00 забрать посылку")
         XCTAssertEqual(try corrected.validated(now: context().now).title, "Забрать посылку")
         XCTAssertThrowsError(try ReminderDraft(sourceText: "", title: " ", date: corrected.date, warnings: []).validated(now: context().now))
+    }
+}
+
+@MainActor
+final class VoiceCreationTests: XCTestCase {
+    func testVoiceRouteAndExistingReminderLinks() {
+        let id = UUID()
+        XCTAssertEqual(AppRoute(url: AppRoute.voiceURL), .voice)
+        XCTAssertEqual(AppRoute(url: ReminderLink.url(for: id)), .reminder(id))
+        XCTAssertEqual(ReminderLink.id(from: ReminderLink.url(for: id)), id)
+        for invalid in ["nudge://voice/extra", "nudge://voice?cloud=true", "https://voice", "nudge://reminder/no"] {
+            XCTAssertNil(AppRoute(url: URL(string: invalid)!))
+        }
+    }
+    func testOneConfirmationCreatesOnlyOnceAndFailedSaveCanRetry() async throws {
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        let draft = ReminderDraft(sourceText: "Task", title: "Task", date: now.addingTimeInterval(600), warnings: [])
+        let creation = VoiceCreation()
+        let id = UUID()
+        var calls = 0
+        let first = try await creation.confirm(draft: draft, now: now) { _, _ in calls += 1; return id }
+        let second = try await creation.confirm(draft: draft, now: now) { _, _ in calls += 1; return UUID() }
+        XCTAssertEqual(first, id)
+        XCTAssertNil(second)
+        XCTAssertEqual(calls, 1)
+        let retrying = VoiceCreation()
+        let failure = try await retrying.confirm(draft: draft, now: now) { _, _ in nil }
+        XCTAssertNil(failure)
+        let retried = try await retrying.confirm(draft: draft, now: now) { _, _ in id }
+        XCTAssertEqual(retried, id)
+    }
+    func testConcurrentConfirmationDoesNotDuplicate() async throws {
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        let draft = ReminderDraft(sourceText: "Task", title: "Task", date: now.addingTimeInterval(600), warnings: [])
+        let creation = VoiceCreation()
+        var continuation: CheckedContinuation<UUID?, Never>?
+        let first = Task { try await creation.confirm(draft: draft, now: now) { _, _ in await withCheckedContinuation { continuation = $0 } } }
+        while continuation == nil { await Task.yield() }
+        let repeated = try await creation.confirm(draft: draft, now: now) { _, _ in XCTFail("Duplicate save"); return UUID() }
+        XCTAssertNil(repeated)
+        let id = UUID(); continuation?.resume(returning: id)
+        let result = try await first.value
+        XCTAssertEqual(result, id)
     }
 }

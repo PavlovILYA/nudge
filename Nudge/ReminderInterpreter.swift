@@ -19,6 +19,7 @@ struct ReminderDraft: Sendable, Equatable {
     enum Warning: String, Sendable {
         case missingDate, missingTime, ambiguous, invalidDate, pastDate, missingTitle, unsupportedRecurrence
     }
+    func isCurrent(for text: String) -> Bool { sourceText == text.trimmingCharacters(in: .whitespacesAndNewlines) }
     enum ValidationError: Error { case title, date }
     func validated(now: Date) throws -> (title: String, date: Date) {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,7 +63,7 @@ struct RuleBasedInterpreter: ReminderInterpreter {
         let dayPattern = #"\b(послезавтра|завтра|сегодня)\b"#
         let weekdayPattern = #"\b(?:в|на)\s+("# + weekdays.joined(separator: "|") + #")\b"#
         let absolutePattern = #"\b(\d{1,2})\s+("# + months.joined(separator: "|") + #")(?:\s+(\d{4})(?:\s+года)?)?\b"#
-        let timePattern = #"\b(?:(?:часов\s+)?(?:в|на)\s+("# + numberPattern + #")(?::(\d{2}))?|(\d{1,2}):(\d{2}))(?:\s+(утра|утром|вечера|вечером|дня|днем|днём|ночи|ночью))?\b"#
+        let timePattern = #"(?<![:\d])\b(?:(?:часов\s+)?(?:в|на)\s+("# + numberPattern + #")(?::(\d{2}))?|(\d{1,2}):(\d{2}))(?:\s+(утра|утром|вечера|вечером|дня|днем|днём|ночи|ночью))?\b(?!:)"#
         let relatives = matches(relativePattern, phrase)
         let days = matches(dayPattern, phrase)
         let weekdaysFound = matches(weekdayPattern, phrase)
@@ -135,7 +136,7 @@ struct RuleBasedInterpreter: ReminderInterpreter {
             title = replace(pattern, in: title, with: " ")
         }
         // Unsupported leftover temporal clauses must not silently become a different schedule.
-        if !matches(#"\b(?:через|или)\b|\b\d+\s+(?:минут|час|дней|недель)"#, title).isEmpty {
+        if !matches(#"\b(?:через)\b|\b\d+\s+(?:минут|час|дней|недель)"#, title).isEmpty {
             date = nil; warnings.append(.ambiguous)
         }
         title = cleanTitle(title, locale: context.locale)

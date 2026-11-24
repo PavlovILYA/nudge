@@ -85,7 +85,7 @@ struct VoiceCaptureView: View {
                             .disabled(speech.isBusy || creation.isSaving)
                         Button("Create") { Task { await create() } }
                             .frame(minHeight: 44)
-                            .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isBusy || interpreting || creation.isSaving || store.isBusy)
+                            .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isBusy || interpreting || creation.isSaving || store.isBusy || proposal?.isCurrent(for: transcript) != true)
                         Button("Record again") { Task { await speech.start() } }
                             .disabled(speech.isBusy || creation.isSaving || !speech.canRecord)
                     }
@@ -142,11 +142,11 @@ struct VoiceCaptureView: View {
             return
         }
         let source = transcript
+        interpreting = true
+        defer { if version == interpretationVersion { interpreting = false } }
         do {
             try await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
-            interpreting = true
-            defer { if version == interpretationVersion { interpreting = false } }
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = .current
             let context = InterpretationContext(now: .now, calendar: calendar, timeZone: .current, locale: Locale(identifier: "ru_RU"),
@@ -164,6 +164,7 @@ struct VoiceCaptureView: View {
     }
 
     private func create() async {
+        guard proposal?.isCurrent(for: transcript) == true, !interpreting, !speech.isBusy else { return }
         speech.cancel()
         let draft = ReminderDraft(sourceText: transcript, title: title, date: hasDate ? date : nil, warnings: proposal?.warnings ?? [])
         let sound = soundOverride ?? defaultSound
