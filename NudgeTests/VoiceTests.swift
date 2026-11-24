@@ -1,3 +1,5 @@
+import AVFoundation
+import Speech
 import SwiftData
 import XCTest
 @testable import Nudge
@@ -195,5 +197,109 @@ private enum Legacy040 {
             alarmState = .failed
             alarmError = "Alarm pending"
         }
+    }
+}
+
+
+final class SpeechCallbackTests: XCTestCase {
+    @MainActor
+    func testAuthorizationFromBackgroundResumesCallerOnMainActor() async {
+        for expected in [SFSpeechRecognizerAuthorizationStatus.authorized, .denied, .restricted, .authorized] {
+            let status = await SpeechCallbacks.authorization { reply in
+                DispatchQueue.global().async {
+                    dispatchPrecondition(condition: .notOnQueue(.main))
+                    reply(expected)
+                }
+            }
+            // This assertion reproduces the actor context in which the real crash occurred.
+            MainActor.assertIsolated()
+            XCTAssertEqual(status, expected)
+        }
+    }
+
+    @MainActor
+    func testAlreadyAuthorizedSynchronousCallbackAndRepeatedRequests() async {
+        for _ in 0..<2 {
+            let status = await SpeechCallbacks.authorization { reply in reply(.authorized) }
+            XCTAssertEqual(status, .authorized)
+        }
+    }
+
+    @MainActor
+    func testRecognitionCallbackHopsBeforeAccessingActorState() async {
+        let delivered = expectation(description: "MainActor recognition delivery")
+        let callback = SpeechCallbacks.recognition { update in
+            MainActor.assertIsolated()
+            XCTAssertNil(update.text)
+            XCTAssertFalse(update.final)
+            XCTAssertEqual(update.errorDomain, "SpeechCallbackTest")
+            XCTAssertEqual(update.errorCode, 42)
+            delivered.fulfill()
+        }
+        DispatchQueue.global().async {
+            dispatchPrecondition(condition: .notOnQueue(.main))
+            callback(nil, NSError(domain: "SpeechCallbackTest", code: 42))
+        }
+        await fulfillment(of: [delivered], timeout: 3)
+    }
+
+    @MainActor
+    func testAudioTapCanDeliverFromBackgroundWithoutMainActor() async throws {
+        let (stream, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream()
+        let tap = MicrophoneCapture.tap(sink)
+        // Only the callback crosses queues. Allocate the framework buffers on the invoking queue.
+        DispatchQueue.global().async {
+            let format = AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 32)!
+            buffer.frameLength = 32
+            buffer.floatChannelData![0].initialize(repeating: 0.25, count: 32)
+            tap(buffer, AVAudioTime(sampleTime: 0, atRate: 16_000))
+            sink.finish()
+        }
+        var received = 0
+        for try await input in stream {
+            received += 1
+            XCTAssertEqual(input.buffer.frameLength, 32)
+            XCTAssertEqual(input.buffer.floatChannelData![0][0], 0.25)
+        }
+        XCTAssertEqual(received, 1)
+    }
+
+    @MainActor
+    func testCancelReleasesCaptureAndIsSafeToRepeat() throws {
+        let capture = TestMicrophone()
+        let service = SpeechTranscriptionService(microphone: capture)
+        // Simulate an owned capture without requesting system permissions or opening hardware.
+        _ = try capture.start(format: capture.configure())
+        XCTAssertTrue(capture.ownsResources)
+        service.cancel(clearText: true)
+        XCTAssertFalse(capture.ownsResources)
+        XCTAssertEqual(service.phase, .idle)
+        XCTAssertEqual(service.text, "")
+        service.cancel(clearText: true)
+        XCTAssertFalse(capture.ownsResources)
+        XCTAssertEqual(capture.stopCount, 2)
+    }
+}
+
+@MainActor
+private final class TestMicrophone: MicrophoneCapturing {
+    private(set) var ownsResources = false
+    private(set) var stopCount = 0
+    private var continuation: AsyncThrowingStream<AnalyzerInput, Error>.Continuation?
+    func configure() throws -> AVAudioFormat {
+        ownsResources = true
+        return AVAudioFormat(standardFormatWithSampleRate: 16_000, channels: 1)!
+    }
+    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AnalyzerInput, Error> {
+        let (stream, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream()
+        continuation = sink
+        return stream
+    }
+    func stop() {
+        stopCount += 1
+        continuation?.finish()
+        continuation = nil
+        ownsResources = false
     }
 }

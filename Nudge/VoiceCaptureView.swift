@@ -132,8 +132,8 @@ struct VoiceCaptureView: View {
                 if phase == .active { autoStartIfAllowed() }
                 else if phase == .background || speech.phase == .recording || speech.phase == .finalizing { speech.interrupt() }
             }
-            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { _ in speech.interrupt() }
-            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification).receive(on: RunLoop.main)) { _ in speech.interrupt() }
+            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification).receive(on: RunLoop.main)) { _ in
                 if speech.phase == .recording { speech.interrupt() }
             }
             .onDisappear { speech.cancel(clearText: true); interpretationVersion += 1; transcript = ""; proposal = nil; title = "" }

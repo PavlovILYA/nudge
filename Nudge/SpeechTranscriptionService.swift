@@ -6,9 +6,65 @@ import UIKit
 
 private enum CaptureError: Error, Equatable { case audio, overflow, unavailable, permission, inactive }
 
+// These factories deliberately live outside MainActor. Objective-C callbacks may
+// run on arbitrary queues; an inner Task cannot repair an isolated outer callback.
+enum SpeechCallbacks {
+    typealias AuthorizationReply = @Sendable (SFSpeechRecognizerAuthorizationStatus) -> Void
+
+    nonisolated static func authorization(
+        request: @Sendable (@escaping AuthorizationReply) -> Void = { reply in
+            SFSpeechRecognizer.requestAuthorization(reply)
+        }
+    ) async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            request { @Sendable status in continuation.resume(returning: status) }
+        }
+    }
+
+    struct RecognitionUpdate: Sendable {
+        let text: String?
+        let final: Bool
+        let errorDomain: String?
+        let errorCode: Int?
+    }
+
+    nonisolated static func recognition(
+        deliver: @escaping @MainActor @Sendable (RecognitionUpdate) -> Void
+    ) -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void {
+        { result, error in
+            // Snapshot framework objects on their callback queue. Only values cross actors.
+            let failure = error as NSError?
+            let update = RecognitionUpdate(text: result?.bestTranscription.formattedString,
+                final: result?.isFinal == true, errorDomain: failure?.domain, errorCode: failure?.code)
+            Task { @MainActor in deliver(update) }
+        }
+    }
+
+    // AVAudioConverter invokes its input block synchronously during convert().
+    // The per-call supply flag and buffers never cross an actor or escape this call.
+    nonisolated static func convert(_ converter: AVAudioConverter, output: AVAudioPCMBuffer,
+                                    input: AVAudioPCMBuffer?, error: inout NSError?) -> AVAudioConverterOutputStatus {
+        var supplied = false
+        return converter.convert(to: output, error: &error) { _, state in
+            guard let input else { state.pointee = .endOfStream; return nil }
+            guard !supplied else { state.pointee = .noDataNow; return nil }
+            supplied = true
+            state.pointee = .haveData
+            return input
+        }
+    }
+}
+
+@MainActor
+protocol MicrophoneCapturing: AnyObject {
+    func configure() throws -> AVAudioFormat
+    func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AnalyzerInput, Error>
+    func stop()
+}
+
 /// Audio ownership only: tap buffers are copied before crossing into an async stream.
 @MainActor
-private final class MicrophoneCapture {
+final class MicrophoneCapture: MicrophoneCapturing {
     private var engine: AVAudioEngine?
     private var tapped = false
     private var ownsSession = false
@@ -28,12 +84,16 @@ private final class MicrophoneCapture {
 
     func start(format: AVAudioFormat) throws -> AsyncThrowingStream<AnalyzerInput, Error> {
         guard let engine else { throw CaptureError.audio }
+        // Route changes can occur while analyzer preparation suspends. Input nodes
+        // cannot convert a stale hardware format; reject it before installTap asserts.
+        let current = engine.inputNode.outputFormat(forBus: 0)
+        guard current.sampleRate > 0, current.channelCount > 0,
+              current.sampleRate == format.sampleRate, current.channelCount == format.channelCount,
+              current.commonFormat == format.commonFormat, current.isInterleaved == format.isInterleaved
+        else { throw CaptureError.audio }
         let (stream, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream(bufferingPolicy: .bufferingNewest(64))
         continuation = sink
-        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            guard let copy = Self.copy(buffer) else { sink.finish(throwing: CaptureError.audio); return }
-            if case .dropped = sink.yield(AnalyzerInput(buffer: copy)) { sink.finish(throwing: CaptureError.overflow) }
-        }
+        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.tap(sink))
         tapped = true
         engine.prepare()
         try engine.start()
@@ -49,6 +109,13 @@ private final class MicrophoneCapture {
         if ownsSession {
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             ownsSession = false
+        }
+    }
+
+    nonisolated static func tap(_ sink: AsyncThrowingStream<AnalyzerInput, Error>.Continuation) -> @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void {
+        { buffer, _ in
+            guard let copy = Self.copy(buffer) else { sink.finish(throwing: CaptureError.audio); return }
+            if case .dropped = sink.yield(AnalyzerInput(buffer: copy)) { sink.finish(throwing: CaptureError.overflow) }
         }
     }
 
@@ -76,7 +143,11 @@ final class SpeechTranscriptionService {
     private(set) var canRecord = false
     private(set) var canInstall = false
     private(set) var errorMessage: String?
-    private let microphone = MicrophoneCapture()
+    private let microphone: any MicrophoneCapturing
+
+    init(microphone: (any MicrophoneCapturing)? = nil) {
+        self.microphone = microphone ?? MicrophoneCapture()
+    }
     private let locale = Locale(identifier: "ru-RU")
     private enum Backend {
         case transcriber(Locale), dictation(Locale)
@@ -114,6 +185,7 @@ final class SpeechTranscriptionService {
     func prepare() async {
         guard !isBusy else { return }
         phase = .preparing
+        logger.info("speech_prepare_started")
         let token = generation
         var selected: Backend?
         var download: (any SpeechModule)?
@@ -145,6 +217,7 @@ final class SpeechTranscriptionService {
             name = "SFSpeechRecognizer"
         }
         backendName = name
+        logger.info("speech_backend_selected backend=\(name, privacy: .public)")
         canRecord = selected != nil || legacy != nil
         canInstall = download != nil
         phase = .idle
@@ -178,21 +251,22 @@ final class SpeechTranscriptionService {
         cancel()
         phase = .preparing
         let token = generation
-        text = ""; finalized = ""; firstTextLogged = false
+        text = ""; finalized = ""; firstTextLogged = false; startedAt = nil
         do {
             let permitted = await AVAudioApplication.requestRecordPermission()
             guard token == generation, !Task.isCancelled else { return }
             guard permitted else { throw CaptureError.permission }
+            logger.info("microphone_permission_granted")
             if backend == nil {
-                let status = await withCheckedContinuation { continuation in
-                    SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
-                }
+                let status = await SpeechCallbacks.authorization()
                 guard token == generation, !Task.isCancelled else { return }
                 guard status == .authorized else { throw CaptureError.permission }
+                logger.info("speech_permission_granted")
             }
             guard token == generation, !Task.isCancelled else { return }
             guard UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
             let naturalFormat = try microphone.configure()
+            logger.info("audio_session_configured backend=\(self.backendName, privacy: .public)")
             if let module = backend?.makeModule() {
                 let status = await AssetInventory.status(forModules: [module])
                 guard token == generation, !Task.isCancelled else { return }
@@ -211,7 +285,7 @@ final class SpeechTranscriptionService {
             }
             phase = .recording
             startedAt = .now
-            logger.info("recording_started backend=\(self.backendName, privacy: .public)")
+            logger.info("audio_engine_started backend=\(self.backendName, privacy: .public)")
             deadlineTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled, self?.generation == token else { return }
@@ -234,12 +308,8 @@ final class SpeechTranscriptionService {
                     let buffer = input.buffer // iOS 26 compatibility; 27-only read-only APIs are not required.
                     let capacity = AVAudioFrameCount(ceil(Double(buffer.frameLength) * format.sampleRate / naturalFormat.sampleRate)) + 32
                     guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { throw CaptureError.audio }
-                    var supplied = false
                     var error: NSError?
-                    let status = converter.convert(to: output, error: &error) { _, state in
-                        if supplied { state.pointee = .noDataNow; return nil }
-                        supplied = true; state.pointee = .haveData; return buffer
-                    }
+                    let status = SpeechCallbacks.convert(converter, output: output, input: buffer, error: &error)
                     guard status != .error, error == nil else { throw CaptureError.audio }
                     if output.frameLength > 0, case .dropped = sink.yield(AnalyzerInput(buffer: output)) { throw CaptureError.overflow }
                 }
@@ -247,7 +317,7 @@ final class SpeechTranscriptionService {
                 while !Task.isCancelled {
                     guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4096) else { throw CaptureError.audio }
                     var error: NSError?
-                    let status = converter.convert(to: output, error: &error) { _, state in state.pointee = .endOfStream; return nil }
+                    let status = SpeechCallbacks.convert(converter, output: output, input: nil, error: &error)
                     guard status != .error, error == nil else { throw CaptureError.audio }
                     if output.frameLength > 0, case .dropped = sink.yield(AnalyzerInput(buffer: output)) { throw CaptureError.overflow }
                     if status == .endOfStream || output.frameLength == 0 { break }
@@ -291,17 +361,14 @@ final class SpeechTranscriptionService {
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         self.request = request
-        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            let text = result?.bestTranscription.formattedString
-            let final = result?.isFinal == true
-            let failed = error != nil
-            Task { @MainActor [weak self] in
-                guard let self, self.generation == token else { return }
-                if let text { self.text = text; self.logFirstText() }
-                if final { self.finish() }
-                else if failed { self.fail(CaptureError.unavailable) }
+        recognitionTask = recognizer.recognitionTask(with: request, resultHandler: SpeechCallbacks.recognition { [weak self] update in
+            guard let self, self.generation == token else { return }
+            if let text = update.text { self.text = text; self.logFirstText() }
+            if update.final { self.finish() }
+            else if let domain = update.errorDomain {
+                self.fail(NSError(domain: domain, code: update.errorCode ?? 0))
             }
-        }
+        })
         let input = try microphone.start(format: format)
         inputTask = Task { [weak self] in
             do {
@@ -318,6 +385,7 @@ final class SpeechTranscriptionService {
     func stop() {
         guard phase == .recording else { return }
         phase = .finalizing
+        logger.info("speech_stopped backend=\(self.backendName, privacy: .public)")
         microphone.stop()
         deadlineTask?.cancel()
         let token = generation
@@ -329,6 +397,7 @@ final class SpeechTranscriptionService {
     }
     func cancel(clearText: Bool = false) {
         generation += 1
+        if isBusy { logger.info("speech_stopped backend=\(self.backendName, privacy: .public)") }
         microphone.stop()
         inputTask?.cancel(); resultTask?.cancel(); analysisTask?.cancel(); deadlineTask?.cancel()
         inputTask = nil; resultTask = nil; analysisTask = nil; deadlineTask = nil
@@ -352,17 +421,19 @@ final class SpeechTranscriptionService {
     private func logFirstText() {
         guard !text.isEmpty, !firstTextLogged, let startedAt else { return }
         firstTextLogged = true
-        logger.info("first_text_ms=\(Self.milliseconds(since: startedAt), privacy: .public)")
+        logger.info("speech_first_result elapsed_ms=\(Self.milliseconds(since: startedAt), privacy: .public)")
     }
     private func finish() {
         microphone.stop()
         deadlineTask?.cancel()
-        if let startedAt { logger.info("transcription_finished_ms=\(Self.milliseconds(since: startedAt), privacy: .public)") }
+        if let startedAt { logger.info("speech_finished elapsed_ms=\(Self.milliseconds(since: startedAt), privacy: .public)") }
         // Reject any callback arriving after a final result, while preserving its text.
         cancel()
         phase = .finished
     }
     private func fail(_ error: Error) {
+        let failure = error as NSError
+        logger.error("speech_failed backend=\(self.backendName, privacy: .public) domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public)")
         cancel()
         errorMessage = error as? CaptureError == .permission
             ? String(localized: "Microphone or speech permission is denied. Allow access in iOS Settings, or enter text manually.")
