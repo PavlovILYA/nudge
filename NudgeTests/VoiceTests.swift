@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreMedia
 import Speech
 import SwiftData
 import XCTest
@@ -396,5 +397,92 @@ private final class TestMicrophone: MicrophoneCapturing {
         continuation?.finish()
         continuation = nil
         ownsResources = false
+    }
+}
+
+final class SpeechTranscriptTests: XCTestCase {
+    private func time(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 48_000) }
+    private func range(_ start: Double, _ end: Double) -> CMTimeRange {
+        CMTimeRange(start: time(start), end: time(end))
+    }
+    private func part(_ text: String, _ start: Double, _ end: Double) -> SpeechTranscript.Part {
+        SpeechTranscript.Part(text: text, range: range(start, end))
+    }
+    func testSuccessiveVolatilePhrasesSurviveUntilFinalizationWithoutReissue() {
+        var transcript = SpeechTranscript()
+        transcript.replace(range: range(0, 3), with: [part("Напомни завтра в восемь вечера", 0, 3)], finalizedThrough: .zero)
+        transcript.replace(range: range(3, 5), with: [part("забрать посылку,", 3, 5)], finalizedThrough: .zero)
+        transcript.replace(range: range(7, 11), with: [part("а после этого позвонить маме", 7, 11)], finalizedThrough: .zero)
+        let full = "Напомни завтра в восемь вечера забрать посылку, а после этого позвонить маме"
+        XCTAssertEqual(transcript.text, full)
+        // Finalizing the last range also finalizes earlier unchanged volatile ranges.
+        transcript.replace(range: range(7, 11), with: [part("а после этого позвонить маме", 7, 11)], finalizedThrough: time(11))
+        XCTAssertEqual(transcript.text, full)
+        // A duplicate final event and a stale volatile event cannot duplicate or rewrite history.
+        transcript.replace(range: range(7, 11), with: [part("а после этого позвонить маме", 7, 11)], finalizedThrough: time(11))
+        transcript.replace(range: range(0, 3), with: [part("старый вариант", 0, 3)], finalizedThrough: .zero)
+        XCTAssertEqual(transcript.text, full)
+    }
+    func testIntermediateCorrectionReplacesOnlyItsAudioRange() {
+        var transcript = SpeechTranscript()
+        transcript.replace(range: range(0, 2), with: [part("завтра в семь", 0, 2)], finalizedThrough: .zero)
+        transcript.replace(range: range(2, 4), with: [part("позвонить маме", 2, 4)], finalizedThrough: .zero)
+        transcript.replace(range: range(0, 2), with: [part("завтра в восемь", 0, 2)], finalizedThrough: .zero)
+        XCTAssertEqual(transcript.text, "завтра в восемь позвонить маме")
+        transcript.replace(range: range(0, 4), with: [part("Завтра в восемь позвонить маме.", 0, 4)], finalizedThrough: time(4))
+        XCTAssertEqual(transcript.text, "Завтра в восемь позвонить маме.")
+    }
+    func testSplitRangeKeepsUnchangedWordsOutsideReplacement() {
+        var transcript = SpeechTranscript()
+        transcript.replace(range: range(0, 4), with: [part("забрать", 0, 1), part("пакет", 1, 2), part("позвонить", 2, 3), part("маме", 3, 4)], finalizedThrough: .zero)
+        transcript.replace(range: range(0, 2), with: [part("Забрать посылку,", 0, 2)], finalizedThrough: time(2))
+        XCTAssertEqual(transcript.text, "Забрать посылку, позвонить маме")
+        transcript.replace(range: range(2, 4), with: [part("позвонить маме.", 2, 4)], finalizedThrough: time(4))
+        XCTAssertEqual(transcript.text, "Забрать посылку, позвонить маме.")
+    }
+    func testRetractionSilenceBoundariesAndDifferentTimeScales() {
+        var transcript = SpeechTranscript()
+        transcript.replace(range: range(0, 1), with: [part("позвонить", 0, 1)], finalizedThrough: time(1))
+        transcript.replace(range: range(1, 2), with: [part("ошибка", 1, 2)], finalizedThrough: time(1))
+        transcript.replace(range: range(1, 2), with: [], finalizedThrough: time(1))
+        XCTAssertEqual(transcript.text, "позвонить")
+        transcript.replace(range: CMTimeRange(start: CMTime(value: 3000, timescale: 1000), duration: CMTime(value: 1000, timescale: 1000)), with: [part("маме", 3, 4)], finalizedThrough: time(4))
+        XCTAssertEqual(transcript.text, "позвонить маме")
+        transcript.replace(range: .invalid, with: [part("неверно", 0, 1)], finalizedThrough: .invalid)
+        XCTAssertEqual(transcript.text, "позвонить маме")
+    }
+    func testPunctuationDoesNotGetDuplicatedOrSeparatedFromWords() {
+        var transcript = SpeechTranscript()
+        transcript.replace(range: range(0, 1), with: [part("Напомни", 0, 1)], finalizedThrough: .zero)
+        transcript.replace(range: range(1, 2), with: [part(",", 1, 2)], finalizedThrough: .zero)
+        transcript.replace(range: range(2, 3), with: [part("пожалуйста.", 2, 3)], finalizedThrough: time(3))
+        XCTAssertEqual(transcript.text, "Напомни, пожалуйста.")
+    }
+    @MainActor
+    func testModernAttributedWordsPreserveSuffixAndUntimedPunctuation() {
+        let speech = SpeechTranscriptionService()
+        func timed(_ text: String, _ start: Double, _ end: Double) -> AttributedString {
+            var value = AttributedString(text)
+            value[AttributeScopes.SpeechAttributes.TimeRangeAttribute.self] = range(start, end)
+            return value
+        }
+        let phrase = timed("забрать ", 0, 1) + timed("пакет", 1, 2) + AttributedString(",")
+        speech.accept(phrase, range: range(0, 2), finalizedThrough: .zero)
+        speech.accept(AttributedString("позвонить маме."), range: range(3, 5), finalizedThrough: .zero)
+        speech.accept(timed("посылку", 1, 2) + AttributedString(","), range: range(1, 2), finalizedThrough: time(2))
+        XCTAssertEqual(speech.text, "забрать посылку, позвонить маме.")
+        speech.accept(AttributedString("позвонить маме."), range: range(3, 5), finalizedThrough: time(5))
+        XCTAssertEqual(speech.text, "забрать посылку, позвонить маме.")
+        speech.cancel(clearText: true)
+        XCTAssertEqual(speech.text, "")
+    }
+
+    @MainActor
+    func testLegacyPartialsAreWholeUtteranceSnapshots() {
+        let speech = SpeechTranscriptionService()
+        speech.acceptLegacy("Напомни завтра")
+        speech.acceptLegacy("Напомни завтра забрать пакет")
+        speech.acceptLegacy("Напомни завтра забрать посылку")
+        XCTAssertEqual(speech.text, "Напомни завтра забрать посылку")
     }
 }

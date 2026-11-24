@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreMedia
 import Observation
 import OSLog
 import Speech
@@ -184,8 +185,12 @@ final class SpeechTranscriptionService {
         // Speech modules belong to one analyzer. Never reuse a module for Record again.
         func makeModule() -> any SpeechModule {
             switch self {
-            case .transcriber(let locale): SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-            case .dictation(let locale): DictationTranscriber(locale: locale, preset: .progressiveShortDictation)
+            case .transcriber(let locale):
+                return SpeechTranscriber(locale: locale, preset: .timeIndexedProgressiveTranscription)
+            case .dictation(let locale):
+                var preset = DictationTranscriber.Preset.progressiveShortDictation
+                preset.attributeOptions.insert(.audioTimeRange)
+                return DictationTranscriber(locale: locale, preset: preset)
             }
         }
     }
@@ -201,7 +206,7 @@ final class SpeechTranscriptionService {
     private var analysisTask: Task<Void, Never>?
     private var deadlineTask: Task<Void, Never>?
     private var generation = 0
-    private var finalized = ""
+    private var transcript = SpeechTranscript()
     private var startedAt: ContinuousClock.Instant?
     private var firstTextLogged = false
     private let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "VoiceTiming")
@@ -281,7 +286,7 @@ final class SpeechTranscriptionService {
         cancel()
         phase = .preparing
         let token = generation
-        text = ""; finalized = ""; firstTextLogged = false; startedAt = nil
+        text = ""; transcript = SpeechTranscript(); firstTextLogged = false; startedAt = nil
         do {
             let permitted = await AVAudioApplication.requestRecordPermission()
             guard token == generation, !Task.isCancelled else { return }
@@ -352,7 +357,7 @@ final class SpeechTranscriptionService {
                 do {
                     for try await result in transcriber.results {
                         guard self?.generation == token, !Task.isCancelled else { return }
-                        self?.accept(String(result.text.characters), final: result.isFinal)
+                        self?.accept(result.text, range: result.range, finalizedThrough: result.resultsFinalizationTime)
                     }
                 } catch { if self?.generation == token { self?.fail(error) } }
             }
@@ -361,7 +366,7 @@ final class SpeechTranscriptionService {
                 do {
                     for try await result in transcriber.results {
                         guard self?.generation == token, !Task.isCancelled else { return }
-                        self?.accept(String(result.text.characters), final: result.isFinal)
+                        self?.accept(result.text, range: result.range, finalizedThrough: result.resultsFinalizationTime)
                     }
                 } catch { if self?.generation == token { self?.fail(error) } }
             }
@@ -385,7 +390,7 @@ final class SpeechTranscriptionService {
         self.request = request
         recognitionTask = recognizer.recognitionTask(with: request, resultHandler: SpeechCallbacks.recognition { [weak self] update in
             guard let self, self.generation == token else { return }
-            if let text = update.text { self.text = text; self.logFirstText() }
+            if let text = update.text { self.acceptLegacy(text) }
             if update.final { self.finish() }
             else if let domain = update.errorDomain {
                 self.fail(NSError(domain: domain, code: update.errorCode ?? 0))
@@ -428,16 +433,36 @@ final class SpeechTranscriptionService {
         analyzer = nil
         phase = .idle
         errorMessage = nil
-        if clearText { text = ""; finalized = "" }
+        if clearText { text = ""; transcript = SpeechTranscript() }
     }
     func interrupt() {
         guard isBusy else { return }
         cancel()
         errorMessage = String(localized: "Recording stopped. You can edit the partial text or record again.")
     }
-    private func accept(_ fragment: String, final: Bool) {
-        if final { finalized += fragment + " "; text = finalized.trimmingCharacters(in: .whitespacesAndNewlines) }
-        else { text = (finalized + fragment).trimmingCharacters(in: .whitespacesAndNewlines) }
+    func accept(_ text: AttributedString, range: CMTimeRange, finalizedThrough: CMTime) {
+        var parts: [SpeechTranscript.Part] = []
+        var prefix = ""
+        for run in text.runs {
+            let fragment = String(text[run.range].characters)
+            if let timed = run[AttributeScopes.SpeechAttributes.TimeRangeAttribute.self],
+               timed.isValid, CMTimeCompare(timed.duration, .zero) > 0 {
+                parts.append(.init(text: prefix + fragment, range: timed))
+                prefix = ""
+            } else if !parts.isEmpty {
+                // Untimed punctuation/whitespace belongs to the preceding word.
+                parts[parts.count - 1].text += fragment
+            } else { prefix += fragment }
+        }
+        if parts.isEmpty, !prefix.isEmpty { parts = [.init(text: prefix, range: range)] }
+        transcript.replace(range: range, with: parts, finalizedThrough: finalizedThrough)
+        self.text = transcript.text
+        logFirstText()
+    }
+
+    // SFSpeechRecognizer delivers a whole-utterance snapshot, not timed deltas.
+    func acceptLegacy(_ snapshot: String) {
+        text = snapshot
         logFirstText()
     }
     private func logFirstText() {
