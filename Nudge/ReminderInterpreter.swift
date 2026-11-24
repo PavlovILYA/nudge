@@ -136,7 +136,7 @@ struct RuleBasedInterpreter: ReminderInterpreter {
             title = replace(pattern, in: title, with: " ")
         }
         // Unsupported leftover temporal clauses must not silently become a different schedule.
-        if !matches(#"\b(?:через)\b|\b\d+\s+(?:минут|час|дней|недель)"#, title).isEmpty {
+        if !matches(#"\b(?:через|или)\b|\b\d+\s+(?:минут|час|дней|недель)"#, title).isEmpty {
             date = nil; warnings.append(.ambiguous)
         }
         title = cleanTitle(title, locale: context.locale)

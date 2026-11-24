@@ -98,7 +98,7 @@ struct VoiceCaptureView: View {
                             .disabled(speech.isBusy || creation.isSaving)
                         Button("Create") { Task { await create() } }
                             .frame(minHeight: 44)
-                            .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isBusy || interpreting || creation.isSaving || store.isBusy || proposal?.isCurrent(for: transcript) != true)
+                            .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isBusy || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
                         Button("Record again") { Task { await speech.start() } }
                             .disabled(speech.isBusy || creation.isSaving || !speech.canRecord)
                     }
