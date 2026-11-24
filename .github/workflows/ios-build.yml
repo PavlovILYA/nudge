@@ -136,7 +136,9 @@ jobs:
           for language in ("ru", "en"):
               assert (app / f"{language}.lproj/Localizable.strings").is_file()
               with (app / f"{language}.lproj/InfoPlist.strings").open("rb") as source:
-                  assert plistlib.load(source)["NSCalendarsFullAccessUsageDescription"].strip()
+                  localized = plistlib.load(source)
+                  for key in ("NSCalendarsFullAccessUsageDescription", "NSMicrophoneUsageDescription", "NSSpeechRecognitionUsageDescription", "VOICE_SHORTCUT_TITLE"):
+                      assert localized[key].strip()
           for filename in ("nudge-soft.caf", "nudge-prominent.caf", "nudge-silent.caf"):
               sound = app / filename
               assert sound.is_file(), f"Missing sound resource: {sound}"

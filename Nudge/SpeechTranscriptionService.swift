@@ -115,7 +115,7 @@ final class SpeechTranscriptionService {
             let status = await AssetInventory.status(forModules: [candidate])
             guard token == generation, !Task.isCancelled else { return }
             if status == .installed { selected = candidate; name = "SpeechTranscriber" }
-            else { download = candidate; downloadLocale = supported }
+            else if status == .supported || status == .downloading { download = candidate; downloadLocale = supported }
         }
         if selected == nil, let supported = await DictationTranscriber.supportedLocale(equivalentTo: locale) {
             guard token == generation, !Task.isCancelled else { return }
@@ -123,7 +123,7 @@ final class SpeechTranscriptionService {
             let status = await AssetInventory.status(forModules: [candidate])
             guard token == generation, !Task.isCancelled else { return }
             if status == .installed { selected = candidate; name = "DictationTranscriber" }
-            else if download == nil { download = candidate; downloadLocale = supported }
+            else if download == nil && (status == .supported || status == .downloading) { download = candidate; downloadLocale = supported }
         }
         guard token == generation, !Task.isCancelled else { return }
         module = selected
@@ -132,7 +132,7 @@ final class SpeechTranscriptionService {
         legacy = nil
         if selected == nil, let recognizer = SFSpeechRecognizer(locale: locale), recognizer.supportsOnDeviceRecognition {
             legacy = recognizer
-            name = "SFSpeechRecognizer · on-device"
+            name = "SFSpeechRecognizer"
         }
         backendName = name
         canRecord = selected != nil || legacy != nil
@@ -317,7 +317,7 @@ final class SpeechTranscriptionService {
             self?.fail(CaptureError.unavailable)
         }
     }
-    func cancel() {
+    func cancel(clearText: Bool = false) {
         generation += 1
         microphone.stop()
         inputTask?.cancel(); resultTask?.cancel(); analysisTask?.cancel(); deadlineTask?.cancel()
@@ -327,6 +327,7 @@ final class SpeechTranscriptionService {
         analyzer = nil
         phase = .idle
         errorMessage = nil
+        if clearText { text = ""; finalized = "" }
     }
     func interrupt() {
         guard isBusy else { return }

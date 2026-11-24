@@ -7,10 +7,11 @@ struct VoiceCaptureView: View {
     @Environment(\.scenePhase) private var scenePhase
     let store: ReminderStore
     let onOpenTask: (UUID) -> Void
-    private let interpreter: any ReminderInterpreter = RuleBasedInterpreter()
+    private let interpreter: any ReminderInterpreter
     @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = .systemDefault
     @AppStorage(CalendarService.defaultKey) private var calendarDefault = false
     @AppStorage(CalendarService.destinationKey) private var calendarID = ""
+    @AppStorage("experimentalSoundAcknowledged") private var experimentalAcknowledged = false
     @State private var speech = SpeechTranscriptionService()
     @State private var creation = VoiceCreation()
     @State private var transcript = ""
@@ -25,6 +26,12 @@ struct VoiceCaptureView: View {
     @State private var attemptedAutoStart = false
     @State private var errorMessage: String?
     private let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "VoiceTiming")
+
+    init(store: ReminderStore, interpreter: any ReminderInterpreter = RuleBasedInterpreter(), onOpenTask: @escaping (UUID) -> Void) {
+        self.store = store
+        self.interpreter = interpreter
+        self.onOpenTask = onOpenTask
+    }
 
     var body: some View {
         NavigationStack {
@@ -50,9 +57,9 @@ struct VoiceCaptureView: View {
                                 .foregroundStyle(.red).symbolEffect(.pulse)
                             Button("Stop recording", systemImage: "stop.circle.fill") { speech.stop() }
                                 .frame(minHeight: 44)
-                            Button("Cancel recording", role: .cancel) { speech.cancel() }
+                            Button("Cancel recording", role: .cancel) { speech.cancel(clearText: true) }
                         } else if speech.isBusy || interpreting {
-                            ProgressView(speech.phase == .preparing ? "Preparing offline recognition…" : "Processing…")
+                            ProgressView(speech.phase == .preparing ? String(localized: "Preparing offline recognition…") : String(localized: "Processing…"))
                         } else {
                             Button("Record reminder", systemImage: "mic.circle.fill") { Task { await speech.start() } }
                                 .font(.title3).frame(minHeight: 56).disabled(!speech.canRecord)
@@ -81,6 +88,12 @@ struct VoiceCaptureView: View {
                                 ForEach(AlarmSound.allCases) { Text($0.title).tag(Optional($0)) }
                             }
                         }.disabled(speech.isBusy || interpreting)
+                        if (soundOverride ?? defaultSound) == .experimentalVibrationOnly && !experimentalAcknowledged {
+                            Section {
+                                Text(AlarmSound.experimentalWarning).font(.footnote).foregroundStyle(.orange)
+                                Button("Got it") { experimentalAcknowledged = true }
+                            }
+                        }
                         CalendarTaskToggle(enabled: $calendarEnabled, hasExistingLink: false)
                             .disabled(speech.isBusy || creation.isSaving)
                         Button("Create") { Task { await create() } }
@@ -123,7 +136,7 @@ struct VoiceCaptureView: View {
             .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { _ in
                 if speech.phase == .recording { speech.interrupt() }
             }
-            .onDisappear { speech.cancel(); interpretationVersion += 1 }
+            .onDisappear { speech.cancel(clearText: true); interpretationVersion += 1; transcript = ""; proposal = nil; title = "" }
         }
     }
 
@@ -172,12 +185,13 @@ struct VoiceCaptureView: View {
         let destination = calendarID.isEmpty ? nil : calendarID
         do {
             let start = ContinuousClock.now
-            _ = try await creation.confirm(draft: draft, now: .now) { title, date in
+            let id = try await creation.confirm(draft: draft, now: .now) { title, date in
                 if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination) {
                     return store.lastCreatedID
                 }
                 return nil
             }
+            if id != nil { speech.cancel(clearText: true); transcript = ""; proposal = nil }
             let elapsed = start.duration(to: .now).components
             logger.info("creation_ms=\(Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15, privacy: .public)")
         } catch { errorMessage = String(localized: "Check the task title and choose a future date and time.") }
