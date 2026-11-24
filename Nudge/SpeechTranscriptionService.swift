@@ -21,6 +21,11 @@ enum SpeechCallbacks {
         }
     }
 
+    nonisolated static func shouldInterruptRecording(for reason: AVAudioSession.RouteChangeReason?) -> Bool {
+        // Our own setCategory(.record) notification can arrive after engine.start().
+        reason != .categoryChange
+    }
+
     struct RecognitionUpdate: Sendable {
         let text: String?
         let final: Bool

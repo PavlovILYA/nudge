@@ -202,6 +202,15 @@ private enum Legacy040 {
 
 
 final class SpeechCallbackTests: XCTestCase {
+    func testOwnCategoryChangeDoesNotCancelNewRecording() {
+        XCTAssertFalse(SpeechCallbacks.shouldInterruptRecording(for: .categoryChange))
+        for reason in [AVAudioSession.RouteChangeReason.newDeviceAvailable, .oldDeviceUnavailable,
+                       .noSuitableRouteForCategory, .routeConfigurationChange, .unknown] {
+            XCTAssertTrue(SpeechCallbacks.shouldInterruptRecording(for: reason))
+        }
+        XCTAssertTrue(SpeechCallbacks.shouldInterruptRecording(for: nil))
+    }
+
     @MainActor
     func testAuthorizationFromBackgroundResumesCallerOnMainActor() async {
         for expected in [SFSpeechRecognizerAuthorizationStatus.authorized, .denied, .restricted, .authorized] {

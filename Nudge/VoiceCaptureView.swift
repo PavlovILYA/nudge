@@ -133,8 +133,10 @@ struct VoiceCaptureView: View {
                 else if phase == .background || speech.phase == .recording || speech.phase == .finalizing { speech.interrupt() }
             }
             .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification).receive(on: RunLoop.main)) { _ in speech.interrupt() }
-            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification).receive(on: RunLoop.main)) { _ in
-                if speech.phase == .recording { speech.interrupt() }
+            .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification).receive(on: RunLoop.main)) { notification in
+                let raw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+                let reason = raw.flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
+                if speech.phase == .recording, SpeechCallbacks.shouldInterruptRecording(for: reason) { speech.interrupt() }
             }
             .onDisappear { speech.cancel(clearText: true); interpretationVersion += 1; transcript = ""; proposal = nil; title = "" }
         }

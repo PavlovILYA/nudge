@@ -30,7 +30,7 @@ does not apply to authorization callbacks. SDK declarations are archived by CI i
 | Legacy recognition handler | Created in a nonisolated factory; snapshots text/final/error domain+code on the callback queue. Only a Sendable value reaches a separate MainActor Task. Generation rejects late callbacks. An inner MainActor Task alone would not fix an isolated outer closure. |
 | Audio input tap | Nonisolated factory returns Sendable callback; no service/engine state access. Revalidates hardware format after analyzer awaits, before installing tap; copies audio before yielding to bounded stream. Background delivery tested using synthetic PCM without a microphone. |
 | Audio converter input | Both ordinary input and EOF callbacks created inside synchronous nonisolated conversion helper. Per-call supply flag/buffers remain local to the synchronous conversion, with no actor state. |
-| Audio session notifications | Combine delivers interruption and route-change notifications on the main run loop before SwiftUI accesses the service. |
+| Audio session notifications | Combine delivers interruption and route-change notifications on the main run loop before SwiftUI accesses the service. Ignore `.categoryChange` from our own configuration so a queued notification cannot immediately cancel the newly started legacy engine; hardware route changes still interrupt recording. Reason filtering is regression-tested. |
 | Modern speech results / input / finalization | Structured async Tasks inherit MainActor intentionally; framework results arrive through async sequences, not actor-isolated callbacks. Generation/cancellation fences follow suspensions. |
 | UIKit Quick Actions | MainActor UIKit delegate entry points. No widget audio recording; both widgets only open `nudge://voice`. |
 | EventKit changes | Existing notification publisher already delivers on the main run loop. No change. |
@@ -51,6 +51,12 @@ Structured OSLog stages use category `VoiceTiming`: `speech_prepare_started`,
 `speech_first_result`, `speech_stopped`, `speech_finished`, `speech_failed`.
 Only backend, elapsed monotonic time, and error domain/code are logged. No transcript,
 audio, localized error description, or server telemetry is logged.
+
+Apple documents [secondary-thread route notification delivery](https://developer.apple.com/documentation/avfaudio/avaudiosession/routechangenotification)
+and [category-change reasons](https://developer.apple.com/documentation/avfaudio/avaudiosession/routechangereason/categorychange).
+The input format is checked again before installing the tap if hardware changed
+while analyzer setup was suspended. Local Swift 6 probes also exercise PCM resampling
+and end-of-input conversion from a background queue; this does not prove iOS hardware capture.
 
 ## Physical regression checklist (not yet executed)
 

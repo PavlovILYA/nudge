@@ -71,6 +71,7 @@ jobs:
 
           cp -R "$sdk_path/System/Library/Frameworks/EventKit.framework/Headers" sdk-reference/EventKit-Headers
           cp -R "$sdk_path/System/Library/Frameworks/Speech.framework/Headers" sdk-reference/Speech-Headers
+          cp -R "$sdk_path/System/Library/Frameworks/AVFAudio.framework/Headers" sdk-reference/AVFAudio-Headers
 
       - name: Upload SDK reference
         if: matrix.artifact == 'iOS-Simulator'
