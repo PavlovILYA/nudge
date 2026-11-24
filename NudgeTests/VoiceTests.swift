@@ -70,6 +70,19 @@ final class InterpreterTests: XCTestCase {
 
 @MainActor
 final class VoiceCreationTests: XCTestCase {
+    func testInterpretationSourceWaitsForSettledSpeechAndAllowsManualCorrection() {
+        for partial in ["Напомни", "Напомни завтра", "Напомни завтра забрать посылку"] {
+            XCTAssertNil(VoiceCaptureView.interpretationSource(text: partial, isCapturing: true, hasCreatedTask: false))
+        }
+        let full = "Напомни завтра забрать посылку и позвонить маме"
+        XCTAssertEqual(VoiceCaptureView.interpretationSource(text: full, isCapturing: false, hasCreatedTask: false), full)
+        let edited = "Завтра в 20:00 позвонить маме"
+        XCTAssertEqual(VoiceCaptureView.interpretationSource(text: edited, isCapturing: false, hasCreatedTask: false), edited)
+        XCTAssertNil(VoiceCaptureView.interpretationSource(text: full, isCapturing: false, hasCreatedTask: true))
+        XCTAssertNil(VoiceCaptureView.interpretationSource(text: "  ", isCapturing: false, hasCreatedTask: false))
+        XCTAssertEqual(InterpretationContext(now: .distantPast, calendar: .current, timeZone: .current, locale: Locale(identifier: "ru_RU")).defaultSoundID, AlarmSound.newReminderDefault.rawValue)
+    }
+
     func testVoiceRouteAndExistingReminderLinks() {
         let id = UUID()
         XCTAssertEqual(AppRoute(url: AppRoute.voiceURL), .voice)

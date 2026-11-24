@@ -5,7 +5,7 @@ struct InterpretationContext: Sendable {
     var calendar: Calendar
     let timeZone: TimeZone
     let locale: Locale
-    var defaultSoundID = "systemDefault"
+    var defaultSoundID = AlarmSound.newReminderDefault.rawValue
     var calendarEnabled = false
     var calendarID: String?
 }

@@ -8,13 +8,14 @@ struct VoiceCaptureView: View {
     let store: ReminderStore
     let onOpenTask: (UUID) -> Void
     private let interpreter: any ReminderInterpreter
-    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = .systemDefault
+    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = AlarmSound.newReminderDefault
     @AppStorage(CalendarService.defaultKey) private var calendarDefault = false
     @AppStorage(CalendarService.destinationKey) private var calendarID = ""
     @AppStorage("experimentalSoundAcknowledged") private var experimentalAcknowledged = false
     @State private var speech = SpeechTranscriptionService()
     @State private var creation = VoiceCreation()
     @State private var transcript = ""
+    @State private var editingTranscript = false
     @State private var proposal: ReminderDraft?
     @State private var title = ""
     @State private var date = Date.now.addingTimeInterval(300)
@@ -36,86 +37,19 @@ struct VoiceCaptureView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let id = creation.createdID {
-                    Section {
-                        Label("Task saved", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                        if let task = try? store.reminder(id: id) {
-                            Text(task.title).font(.headline)
-                            Text(task.scheduledAt, format: .dateTime.month().day().hour().minute())
-                            if let error = task.calendarError { Text(error).foregroundStyle(.orange) }
-                        }
-                        if let error = store.errorMessage { Text(error).foregroundStyle(.orange) }
-                        Button("Open task") { onOpenTask(id) }
-                        Button("Close") { dismiss() }
+                if let id = creation.createdID { savedContent(id) }
+                else {
+                    if speech.isBusy { recordingContent }
+                    else {
+                        reviewContent
+                        recognitionSettings
                     }
-                } else {
-                    Section {
-                        Text("Speak one reminder in Russian, then check it before creating.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        if speech.phase == .recording {
-                            Label("Recording", systemImage: "mic.fill")
-                                .foregroundStyle(.red).symbolEffect(.pulse)
-                            Button("Stop recording", systemImage: "stop.circle.fill") { speech.stop() }
-                                .frame(minHeight: 44)
-                            Button("Cancel recording", role: .cancel) { speech.cancel(clearText: true) }
-                        } else if speech.isBusy || interpreting {
-                            ProgressView(speech.phase == .preparing ? String(localized: "Preparing offline recognition…") : String(localized: "Processing…"))
-                        } else {
-                            Button("Record reminder", systemImage: "mic.circle.fill") { Task { await speech.start() } }
-                                .font(.title3).frame(minHeight: 56).disabled(!speech.canRecord)
-                        }
-                        if let error = speech.errorMessage { Text(error).foregroundStyle(.orange) }
-                    }
-                    Section("Transcript") {
-                        TextEditor(text: $transcript).frame(minHeight: 88)
-                            .accessibilityLabel("Transcript")
-                            .disabled(speech.isBusy || creation.isSaving)
-                        Text("You can type or correct the phrase. Interpretation updates after editing.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                    if let proposal {
-                        Section("Check the reminder") {
-                            if proposal.warnings.contains(.unsupportedRecurrence) {
-                                Text("Repeating commands are not supported. Only a one-time reminder can be created here.").foregroundStyle(.orange)
-                            } else if !proposal.warnings.isEmpty {
-                                Text("Interpretation is incomplete or ambiguous. Check the title and choose the correct date and time.").foregroundStyle(.orange)
-                            }
-                            TextField("Task title", text: $title, axis: .vertical)
-                            Toggle("Set date and time", isOn: $hasDate)
-                            if hasDate { DatePicker("When", selection: $date, displayedComponents: [.date, .hourAndMinute]) }
-                            Picker("Reminder sound", selection: $soundOverride) {
-                                Text("Use default (\(defaultSound.title))").tag(AlarmSound?.none)
-                                ForEach(AlarmSound.allCases) { Text($0.title).tag(Optional($0)) }
-                            }
-                        }.disabled(speech.isBusy || interpreting)
-                        if (soundOverride ?? defaultSound) == .experimentalVibrationOnly && !experimentalAcknowledged {
-                            Section {
-                                Text(AlarmSound.experimentalWarning).font(.footnote).foregroundStyle(.orange)
-                                Button("Got it") { experimentalAcknowledged = true }
-                            }
-                        }
-                        CalendarTaskToggle(enabled: $calendarEnabled, hasExistingLink: false)
-                            .disabled(speech.isBusy || creation.isSaving)
-                        Button("Create") { Task { await create() } }
-                            .frame(minHeight: 44)
-                            .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isBusy || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
-                        Button("Record again") { Task { await speech.start() } }
-                            .disabled(speech.isBusy || creation.isSaving || !speech.canRecord)
-                    }
+                    if let error = speech.errorMessage { Text(error).foregroundStyle(.orange) }
                     if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
                     if let error = store.errorMessage { Text(error).foregroundStyle(.red) }
-                    DisclosureGroup("Offline Russian recognition") {
-                        Text("Audio stays on this device. Raw recordings are not saved.").font(.footnote)
-                        if !speech.backendName.isEmpty { Text(speech.backendName).font(.caption) }
-                        if speech.canInstall {
-                            Button("Install system language resources") { Task { await speech.installResources() } }
-                                .disabled(speech.isBusy)
-                            Text("Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded.").font(.footnote)
-                        }
-                        Button("Check availability again") { Task { await speech.prepare() } }.disabled(speech.isBusy)
-                    }
                 }
             }
+            .disabled(creation.isSaving)
             .navigationTitle("Voice reminder")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(creation.isSaving) } }
@@ -126,8 +60,28 @@ struct VoiceCaptureView: View {
                 await speech.prepare()
                 autoStartIfAllowed()
             }
-            .task(id: speech.isBusy ? nil : transcript) { await interpret() }
+            // The ID stays nil for every partial result. Only settled speech or a
+            // manual edit schedules interpretation; .task cancels the old debounce.
+            .task(id: interpretationText) {
+                guard let source = interpretationText else { return }
+                await interpret(source: source)
+            }
             .onChange(of: speech.text) { _, value in transcript = value }
+            .onChange(of: speech.isBusy) { _, busy in
+                if busy {
+                    interpretationVersion += 1
+                    interpreting = false
+                    editingTranscript = false
+                    errorMessage = nil
+                }
+            }
+            .onChange(of: transcript) { _, value in
+                if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    interpretationVersion += 1
+                    interpreting = false
+                    proposal = nil
+                }
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { autoStartIfAllowed() }
                 else if phase == .background || speech.phase == .recording || speech.phase == .finalizing { speech.interrupt() }
@@ -142,13 +96,138 @@ struct VoiceCaptureView: View {
         }
     }
 
+    private var recordingContent: some View {
+        Section {
+            if speech.phase == .recording {
+                Label("Recording", systemImage: "mic.fill").foregroundStyle(.red).symbolEffect(.pulse)
+            } else {
+                ProgressView(speech.phase == .preparing ? String(localized: "Getting ready…") : String(localized: "Finishing recording…"))
+            }
+            Text(speech.text.isEmpty ? String(localized: "Speak your reminder") : speech.text)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if speech.phase == .recording {
+                Button { speech.stop() } label: {
+                    Label("Stop recording", systemImage: "stop.circle.fill").frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent).controlSize(.large)
+            }
+        }
+    }
+
+    @ViewBuilder private var reviewContent: some View {
+        if transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Section {
+                Text("Speak your reminder").foregroundStyle(.secondary)
+                Button { Task { await speech.start() } } label: {
+                    Label("Record reminder", systemImage: "mic.fill").frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent).controlSize(.large).disabled(!speech.canRecord)
+                Button("Type a reminder") { editingTranscript = true }
+            }
+        }
+        if !transcript.isEmpty || editingTranscript {
+            Section {
+                DisclosureGroup("Edit phrase", isExpanded: $editingTranscript) {
+                    TextEditor(text: $transcript).frame(minHeight: 100).accessibilityLabel("Transcript")
+                }
+            }
+        }
+        if interpreting { ProgressView("Processing…") }
+        if let proposal {
+            Section("Check the reminder") {
+                TextField("Task title", text: $title, axis: .vertical).font(.headline)
+                if !hasDate { Text("Choose when to remind you.").foregroundStyle(.secondary) }
+                DatePicker("When", selection: Binding(get: { date }, set: { date = $0; hasDate = true }), displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(.compact)
+                if proposal.warnings.contains(.unsupportedRecurrence) {
+                    Text("Repeating commands are not supported. Only a one-time reminder can be created here.").font(.footnote).foregroundStyle(.orange)
+                } else if proposal.warnings.contains(.ambiguous) {
+                    Text("Check the title and time.").font(.footnote).foregroundStyle(.orange)
+                }
+                if hasDate, date <= .now { Text("Choose a date and time in the future.").foregroundStyle(.orange) }
+            }
+            .disabled(interpreting)
+            Section {
+                Button { Task { await create() } } label: {
+                    HStack {
+                        if creation.isSaving { ProgressView() }
+                        Text("Create").font(.headline)
+                    }.frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent).controlSize(.large)
+                .disabled(!hasDate || date <= .now || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
+                Button("Record again") { Task { await speech.start() } }.disabled(!speech.canRecord)
+                if (soundOverride ?? defaultSound) == .experimentalVibrationOnly && !experimentalAcknowledged {
+                    Text("Experimental silent signal: silence and vibration are not guaranteed.").font(.footnote).foregroundStyle(.secondary)
+                    Button("Got it") { experimentalAcknowledged = true }
+                }
+            }
+            Section {
+                DisclosureGroup {
+                    Picker("Reminder sound", selection: $soundOverride) {
+                        Text("Use default (\(defaultSound.title))").tag(AlarmSound?.none)
+                        ForEach(AlarmSound.allCases) { Text($0.title).tag(Optional($0)) }
+                    }
+                    CalendarTaskToggle(enabled: $calendarEnabled, hasExistingLink: false, compact: true)
+                    if (soundOverride ?? defaultSound) == .experimentalVibrationOnly {
+                        Text(AlarmSound.experimentalWarning).font(.footnote).foregroundStyle(.secondary)
+                    }
+                } label: {
+                    VStack(alignment: .leading) {
+                        Text("Sound and Calendar")
+                        Text((soundOverride ?? defaultSound).title).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var recognitionSettings: some View {
+        Section {
+            DisclosureGroup("Recognition settings") {
+                Text("Audio stays on this device. Raw recordings are not saved.").font(.footnote)
+                if !speech.backendName.isEmpty { Text(speech.backendName).font(.caption) }
+                if speech.canInstall {
+                    Button("Install system language resources") { Task { await speech.installResources() } }
+                    Text("Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded.").font(.footnote)
+                }
+                Button("Check availability again") { Task { await speech.prepare() } }
+            }
+        }
+    }
+
+    private func savedContent(_ id: UUID) -> some View {
+        Section {
+            Label("Task saved", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+            if let task = try? store.reminder(id: id) {
+                Text(task.title).font(.headline)
+                Text(task.scheduledAt, format: .dateTime.month().day().hour().minute())
+                if let error = task.calendarError { Text(error).foregroundStyle(.orange) }
+            }
+            if let error = store.errorMessage { Text(error).foregroundStyle(.orange) }
+            Button("Open task") { onOpenTask(id) }
+            Button("Close") { dismiss() }
+        }
+    }
+
+    static func interpretationSource(text: String, isCapturing: Bool, hasCreatedTask: Bool) -> String? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return isCapturing || hasCreatedTask || text.isEmpty ? nil : text
+    }
+
+    private var interpretationText: String? {
+        Self.interpretationSource(text: transcript, isCapturing: speech.isBusy, hasCreatedTask: creation.createdID != nil)
+    }
+
     private func autoStartIfAllowed() {
         guard !attemptedAutoStart, scenePhase == .active, speech.canRecord else { return }
         attemptedAutoStart = true
         if speech.permissionsGranted { Task { await speech.start() } }
     }
 
-    private func interpret() async {
+    private func interpret(source: String) async {
+        // Availability checks must not overwrite manual title/date edits for the same phrase.
+        guard proposal?.isCurrent(for: source) != true else { return }
         interpretationVersion += 1
         let version = interpretationVersion
         guard !speech.isBusy, creation.createdID == nil, !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -156,7 +235,6 @@ struct VoiceCaptureView: View {
             if transcript.isEmpty { proposal = nil }
             return
         }
-        let source = transcript
         interpreting = true
         defer { if version == interpretationVersion { interpreting = false } }
         do {
@@ -168,7 +246,7 @@ struct VoiceCaptureView: View {
                 defaultSoundID: defaultSound.rawValue, calendarEnabled: calendarEnabled, calendarID: calendarID)
             let start = ContinuousClock.now
             let draft = try await interpreter.interpret(text: source, context: context)
-            guard !Task.isCancelled, version == interpretationVersion, source == transcript else { return }
+            guard !Task.isCancelled, version == interpretationVersion, source == transcript.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
             proposal = draft; title = draft.title; hasDate = draft.date != nil
             date = draft.date ?? context.now.addingTimeInterval(300)
             errorMessage = nil

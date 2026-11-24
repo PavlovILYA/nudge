@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SoundSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = .systemDefault
+    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = AlarmSound.newReminderDefault
 
     var body: some View {
         NavigationStack {

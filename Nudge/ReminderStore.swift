@@ -25,7 +25,7 @@ final class ReminderStore {
     }
 
     /// True means the task was saved, even when its alarm failed.
-    func create(title: String, date: Date, sound: AlarmSound = .systemDefault, calendarEnabled: Bool = false, calendarID: String? = nil) async -> Bool {
+    func create(title: String, date: Date, sound: AlarmSound? = nil, calendarEnabled: Bool = false, calendarID: String? = nil) async -> Bool {
         guard !isBusy else { return false }
         isBusy = true
         defer { isBusy = false }
@@ -33,7 +33,7 @@ final class ReminderStore {
         lastCreatedID = nil
         do {
             reminder = try Reminder(title: title, scheduledAt: date)
-            reminder.soundModeID = sound.rawValue
+            reminder.soundModeID = (sound ?? AlarmSound.preferred()).rawValue
             reminder.calendarEnabled = calendarEnabled
             reminder.calendarIdentifier = calendarID
             context.insert(reminder)

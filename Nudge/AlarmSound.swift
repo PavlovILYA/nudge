@@ -6,6 +6,12 @@ enum AlarmSound: String, CaseIterable, Identifiable, Sendable {
     case systemDefault, soft, prominent, experimentalVibrationOnly
 
     static let preferenceKey = "defaultAlarmSound"
+    static let newReminderDefault: AlarmSound = .experimentalVibrationOnly
+
+    /// Reading a fallback never writes over an explicit saved preference.
+    static func preferred(in defaults: UserDefaults = .standard) -> AlarmSound {
+        defaults.string(forKey: preferenceKey).flatMap(AlarmSound.init(rawValue:)) ?? newReminderDefault
+    }
     var id: String { rawValue }
 
     var title: String {

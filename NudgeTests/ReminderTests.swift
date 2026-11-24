@@ -402,10 +402,46 @@ final class ReminderTests: XCTestCase {
         let suite = "nudge-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        XCTAssertEqual(AlarmSound(rawValue: defaults.string(forKey: AlarmSound.preferenceKey) ?? "" ) ?? .systemDefault, .systemDefault)
+        XCTAssertEqual(AlarmSound.newReminderDefault, .experimentalVibrationOnly)
+        XCTAssertEqual(AlarmSound.preferred(in: defaults), .experimentalVibrationOnly)
+        XCTAssertNil(defaults.object(forKey: AlarmSound.preferenceKey))
+        for sound in AlarmSound.allCases {
+            defaults.set(sound.rawValue, forKey: AlarmSound.preferenceKey)
+            XCTAssertEqual(AlarmSound.preferred(in: defaults), sound)
+            XCTAssertEqual(defaults.string(forKey: AlarmSound.preferenceKey), sound.rawValue)
+        }
         defaults.set(AlarmSound.experimentalVibrationOnly.rawValue, forKey: AlarmSound.preferenceKey)
         let reopened = try XCTUnwrap(UserDefaults(suiteName: suite))
         XCTAssertEqual(AlarmSound(rawValue: reopened.string(forKey: AlarmSound.preferenceKey) ?? ""), .experimentalVibrationOnly)
+    }
+
+    func testCreationUsesOneDefaultWithoutOverwritingExistingSoundPreference() async throws {
+        let defaults = UserDefaults.standard
+        let previous = defaults.object(forKey: AlarmSound.preferenceKey)
+        defer {
+            if let previous { defaults.set(previous, forKey: AlarmSound.preferenceKey) }
+            else { defaults.removeObject(forKey: AlarmSound.preferenceKey) }
+        }
+        var scheduled: [AlarmSound] = []
+        let alarms = AlarmService(schedule: { _, _, _, sound in scheduled.append(sound) }, cancel: { _ in }, scheduledAlarms: { [:] })
+        let context = try memoryContext()
+        let store = ReminderStore(context: context, alarms: alarms)
+        let cases: [(AlarmSound?, AlarmSound?, AlarmSound)] = [
+            (nil, nil, .experimentalVibrationOnly),
+            (.systemDefault, nil, .systemDefault),
+            (.soft, nil, .soft),
+            (.soft, .prominent, .prominent)
+        ]
+        for (preference, override, expected) in cases {
+            if let preference { defaults.set(preference.rawValue, forKey: AlarmSound.preferenceKey) }
+            else { defaults.removeObject(forKey: AlarmSound.preferenceKey) }
+            let saved = await store.create(title: "New task", date: .now.addingTimeInterval(600), sound: override)
+            XCTAssertTrue(saved)
+            let reminder = try XCTUnwrap(store.reminder(id: XCTUnwrap(store.lastCreatedID)))
+            XCTAssertEqual(reminder.sound, expected)
+            XCTAssertEqual(scheduled.last, expected)
+            XCTAssertEqual(defaults.string(forKey: AlarmSound.preferenceKey), preference?.rawValue)
+        }
     }
 
     func testExactCAFNamesAndAlertSoundMapping() throws {

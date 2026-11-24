@@ -3,7 +3,7 @@ import SwiftUI
 struct CreateReminderView: View {
     @Environment(\.dismiss) private var dismiss
     let store: ReminderStore
-    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = .systemDefault
+    @AppStorage(AlarmSound.preferenceKey) private var defaultSound: AlarmSound = AlarmSound.newReminderDefault
     @AppStorage(CalendarService.defaultKey) private var calendarDefault = false
     @AppStorage(CalendarService.destinationKey) private var calendarID = ""
     @State private var calendarEnabled = false
