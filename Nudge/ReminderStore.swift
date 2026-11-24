@@ -291,7 +291,8 @@ final class ReminderStore {
             let dates = try alarms.scheduledAlarms()
             let items = try context.fetch(FetchDescriptor<Reminder>())
             for item in items where item.completedAt == nil && item.alarmDisabled != true
-                && item.alarmActionsVersion != AlarmService.actionsVersion && item.alarmNeedsUpdate != true {
+                && item.alarmActionsVersion != AlarmService.actionsVersion && item.alarmNeedsUpdate != true
+                && item.pendingSnoozeAt == nil && item.alarmState != .failed {
                 if let date = dates[item.alarmID], date > .now { _ = await snooze(id: item.id, until: date, forceUpdate: true, requireExisting: true) }
             }
         } catch { log(error) }

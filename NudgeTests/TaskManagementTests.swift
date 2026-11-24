@@ -604,4 +604,21 @@ final class TaskFirstTests: XCTestCase {
         XCTAssertFalse(task.alarmEnabled)
     }
 
+    func testActionUpgradePreservesInterruptedSnoozeForExplicitRetry() async throws {
+        let context = try memory()
+        let date = Date.now.addingTimeInterval(600)
+        let pending = date.addingTimeInterval(600)
+        let task = try Reminder(title: "Pending", scheduledAt: date)
+        task.pendingSnoozeAt = pending
+        context.insert(task); try context.save()
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            authorize: { XCTFail("Do not overwrite interrupted operation") },
+            schedule: { _, _, _, _ in XCTFail("Do not overwrite pending time") },
+            cancel: { _ in XCTFail("Keep the old registration") }, scheduledAlarms: { [task.alarmID: date] }))
+        await store.upgradeAlarmActions()
+        XCTAssertEqual(task.pendingSnoozeAt, pending)
+        XCTAssertEqual(task.scheduledAt, date)
+        XCTAssertNil(task.alarmActionsVersion)
+    }
+
 }
