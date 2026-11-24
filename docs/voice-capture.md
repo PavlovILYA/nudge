@@ -16,6 +16,7 @@ Research / exact SDK evidence:
 - https://developer.apple.com/documentation/speech
 - https://developer.apple.com/documentation/speech/speechtranscriber (hardware availability, supported/installed locale checks)
 - https://developer.apple.com/documentation/speech/dictationtranscriber (system dictation models; excludes network-only locales)
+- https://developer.apple.com/documentation/speech/speechanalyzer/setmodules(_:) (modules cannot be reused by different analyzers; construct a fresh module per capture)
 - https://developer.apple.com/documentation/speech/assetinventory (status, installation requests, reservations)
 - https://developer.apple.com/documentation/speech/asking-permission-to-use-speech-recognition (SFSpeech authorization versus on-device analyzer)
 - https://developer.apple.com/documentation/speech/sfspeechrecognizer/supportsondevicerecognition

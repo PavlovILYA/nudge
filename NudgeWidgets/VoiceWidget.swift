@@ -27,6 +27,8 @@ private struct VoiceWidgetView: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("New reminder")
         .widgetURL(URL(string: "nudge://voice")!)
         .containerBackground(.fill.tertiary, for: .widget)
     }

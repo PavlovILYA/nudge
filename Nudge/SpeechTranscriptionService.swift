@@ -78,7 +78,17 @@ final class SpeechTranscriptionService {
     private(set) var errorMessage: String?
     private let microphone = MicrophoneCapture()
     private let locale = Locale(identifier: "ru-RU")
-    private var module: (any SpeechModule)?
+    private enum Backend {
+        case transcriber(Locale), dictation(Locale)
+        // Speech modules belong to one analyzer. Never reuse a module for Record again.
+        func makeModule() -> any SpeechModule {
+            switch self {
+            case .transcriber(let locale): SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+            case .dictation(let locale): DictationTranscriber(locale: locale, preset: .progressiveShortDictation)
+            }
+        }
+    }
+    private var backend: Backend?
     private var downloadLocale: Locale?
     private var downloadableModule: (any SpeechModule)?
     private var legacy: SFSpeechRecognizer?
@@ -98,14 +108,14 @@ final class SpeechTranscriptionService {
     var isBusy: Bool { phase == .preparing || phase == .recording || phase == .finalizing }
     var permissionsGranted: Bool {
         canRecord && AVAudioApplication.shared.recordPermission == .granted
-            && (module != nil || SFSpeechRecognizer.authorizationStatus() == .authorized)
+            && (backend != nil || SFSpeechRecognizer.authorizationStatus() == .authorized)
     }
 
     func prepare() async {
         guard !isBusy else { return }
         phase = .preparing
         let token = generation
-        var selected: (any SpeechModule)?
+        var selected: Backend?
         var download: (any SpeechModule)?
         var downloadLocale: Locale?
         var name = ""
@@ -114,7 +124,7 @@ final class SpeechTranscriptionService {
             let candidate = SpeechTranscriber(locale: supported, preset: .progressiveTranscription)
             let status = await AssetInventory.status(forModules: [candidate])
             guard token == generation, !Task.isCancelled else { return }
-            if status == .installed { selected = candidate; name = "SpeechTranscriber" }
+            if status == .installed { selected = .transcriber(supported); name = "SpeechTranscriber" }
             else if status == .supported || status == .downloading { download = candidate; downloadLocale = supported }
         }
         if selected == nil, let supported = await DictationTranscriber.supportedLocale(equivalentTo: locale) {
@@ -122,11 +132,11 @@ final class SpeechTranscriptionService {
             let candidate = DictationTranscriber(locale: supported, preset: .progressiveShortDictation)
             let status = await AssetInventory.status(forModules: [candidate])
             guard token == generation, !Task.isCancelled else { return }
-            if status == .installed { selected = candidate; name = "DictationTranscriber" }
+            if status == .installed { selected = .dictation(supported); name = "DictationTranscriber" }
             else if download == nil && (status == .supported || status == .downloading) { download = candidate; downloadLocale = supported }
         }
         guard token == generation, !Task.isCancelled else { return }
-        module = selected
+        backend = selected
         downloadableModule = download
         self.downloadLocale = downloadLocale
         legacy = nil
@@ -173,7 +183,7 @@ final class SpeechTranscriptionService {
             let permitted = await AVAudioApplication.requestRecordPermission()
             guard token == generation, !Task.isCancelled else { return }
             guard permitted else { throw CaptureError.permission }
-            if module == nil {
+            if backend == nil {
                 let status = await withCheckedContinuation { continuation in
                     SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
                 }
@@ -183,7 +193,7 @@ final class SpeechTranscriptionService {
             guard token == generation, !Task.isCancelled else { return }
             guard UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
             let naturalFormat = try microphone.configure()
-            if let module {
+            if let module = backend?.makeModule() {
                 let status = await AssetInventory.status(forModules: [module])
                 guard token == generation, !Task.isCancelled else { return }
                 guard status == .installed else { throw CaptureError.unavailable }

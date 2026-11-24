@@ -100,7 +100,7 @@ SwiftData, AlarmKit и EventKit не имеют общей транзакции.
 
 ## Сборка, тесты и установка
 
-Версия **0.5.0**, build **6**, bundle ID **`com.pavlovilya.nudge`**, iPhone, минимум **iOS 26.0**. Современный Xcode локально не требуется: GitHub Actions использует стабильный Xcode 27. PR версии 0.5.0 будет открыт после подготовки изменений, [workflow](https://github.com/PavlovILYA/nudge/actions/workflows/ios-build.yml). Не сливать без физической проверки и явного разрешения.
+Версия **0.5.0**, build **6**, bundle ID **`com.pavlovilya.nudge`**, iPhone, минимум **iOS 26.0**. Современный Xcode локально не требуется: GitHub Actions использует стабильный Xcode 27. Изменения публикуются отдельным PR в main, [workflow](https://github.com/PavlovILYA/nudge/actions/workflows/ios-build.yml). Не сливать без физической проверки и явного разрешения.
 
 CI проверяет Release для Simulator и unsigned iOS Device, unit-тесты, версию/build/Bundle ID, Calendar/AlarmKit/microphone/Speech usage descriptions, URL scheme, Quick Action, вложенный WidgetKit .appex с согласованными ID/версией, RU/EN-ресурсы, все CAF и отсутствие фонового аудиорежима. Тесты используют небольшие fake-границы AlarmKit/EventKit и не запрашивают системные разрешения или настоящие сигналы. Компиляция/тесты не доказывают работу Calendar на конкретном аккаунте или отображение ссылки на телефоне.
 
