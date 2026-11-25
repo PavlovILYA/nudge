@@ -3824,6 +3824,166 @@
           }
         }
       }
+    },
+    "Alarm ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm ID"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идентификатор сигнала"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия"
+          }
+        }
+      }
+    },
+    "Snooze minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze minutes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минуты отложения"
+          }
+        }
+      }
+    },
+    "Slider covers 1–120 minutes; the entered interval is kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slider covers 1–120 minutes; the entered interval is kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шкала — 1–120 минут. Введённый больший интервал сохранён."
+          }
+        }
+      }
+    },
+    "Enter a whole number from 1 to 1440.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a whole number from 1 to 1440."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите целое число от 1 до 1440."
+          }
+        }
+      }
+    },
+    "Snooze for %lld minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze for %lld minutes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить на %lld мин"
+          }
+        }
+      }
+    },
+    "Already snoozed until %@. Closing keeps this alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already snoozed until %@. Closing keeps this alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уже отложено до %@. При закрытии окна этот сигнал сохранится."
+          }
+        }
+      }
+    },
+    "Choose an alarm time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an alarm time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите время сигнала"
+          }
+        }
+      }
+    },
+    "Actions could not secure the next alarm. Choose a time to retry, or turn off the alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions could not secure the next alarm. Choose a time to retry, or turn off the alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось надёжно отложить сигнал. Выберите время для повтора или отключите будильник."
+          }
+        }
+      }
+    },
+    "Actions could not be opened safely. Open Nudge to check the alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions could not be opened safely. Open Nudge to check the alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно открыть действия. Откройте Nudge и проверьте будильник."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

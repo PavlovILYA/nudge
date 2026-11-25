@@ -1,5 +1,7 @@
 # Nudge 0.5.0 (6): финализация MVP в PR #6
 
+> Исторический checklist build 6. Актуальная приёмка build 7: [build7-acceptance.md](build7-acceptance.md).
+
 Этот документ описывает текущий код, а не подтверждение физических тестов. Устройство для приёмки: iPhone 13 / iOS 27.2.1. Версия, Bundle ID, default store, Widgets, звук старых задач и EventKit-ссылки не менялись. PR #6 не мёрджить до проверки.
 
 ## Принятые ограничения и Apple API
