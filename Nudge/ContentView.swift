@@ -60,9 +60,7 @@ struct ContentView: View {
             .navigationTitle(showCompleted ? String(localized: "Completed tasks") : String(localized: "Tasks"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button("Settings", systemImage: "gearshape") { present(.settings) }
-                    } label: { Label("Options", systemImage: "ellipsis.circle") }
+                    Button("Settings", systemImage: "gearshape") { present(.settings) }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Voice reminder", systemImage: "mic") { present(.voice) }

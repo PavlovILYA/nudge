@@ -75,7 +75,7 @@ struct DictationResourcesSection: View {
     private var status: String {
         switch speech.resourceStatus {
         case .checking: String(localized: "Checking Apple dictation…")
-        case .available: String(localized: "Russian dictation is available offline")
+        case .available: String(localized: "Russian dictation resources are installed")
         case .notInstalled: String(localized: "Apple dictation resources are not installed")
         case .installing: String(localized: "Installing Apple dictation resources…")
         case .unavailable: String(localized: "Russian dictation is unavailable on this device")
