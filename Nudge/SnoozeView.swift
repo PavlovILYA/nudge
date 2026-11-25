@@ -9,6 +9,7 @@ struct SnoozeView: View {
     @State private var selectedInterval: SnoozeInterval?
     @State private var date = Date.now.addingTimeInterval(300)
     @State private var choosingDate = false
+    @State private var minutes = 7
 
     private var columns: [GridItem] {
         dynamicTypeSize.isAccessibilitySize
@@ -49,6 +50,11 @@ struct SnoozeView: View {
                             .accessibilityAddTraits(selectedInterval == interval ? .isSelected : [])
                         }
                     }
+                    Stepper(value: $minutes, in: 1...1440) { Text("\(minutes) minutes") }
+                    Button("Snooze for selected minutes") {
+                        selectedInterval = nil
+                        save(Date.now.addingTimeInterval(Double(minutes) * 60))
+                    }.buttonStyle(.bordered).frame(minHeight: 44)
                     Button("Other date and time", systemImage: "calendar") {
                         selectedInterval = nil
                         withAnimation { choosingDate.toggle() }
