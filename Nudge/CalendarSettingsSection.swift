@@ -58,20 +58,28 @@ struct CalendarSettingsSection: View {
 struct CalendarTaskToggle: View {
     @Binding var enabled: Bool
     let hasExistingLink: Bool
+    var compact = false
     @AppStorage(CalendarService.destinationKey) private var destinationID = ""
     @Environment(\.scenePhase) private var scenePhase
     @State private var ready = false
     private let calendar = CalendarService.live
 
     var body: some View {
-        Section {
-            Toggle("Add to Calendar", isOn: $enabled).disabled(!ready && !enabled)
-            if !ready { Text("Connect Calendar and choose a destination in Settings.").font(.footnote).foregroundStyle(.secondary) }
-        } footer: {
-            Text("Turning the link off keeps any existing event. Snooze never moves the event; changing the task date does.")
+        Group {
+            if compact { fields }
+            else {
+                Section { fields } footer: {
+                    Text("Turning the link off keeps any existing event. Snooze never moves the event; changing the task date does.")
+                }
+            }
         }
         .task { refresh() }
         .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }
+    }
+
+    @ViewBuilder private var fields: some View {
+        Toggle("Add to Calendar", isOn: $enabled).disabled(!ready && !enabled)
+        if !ready { Text("Connect Calendar and choose a destination in Settings.").font(.footnote).foregroundStyle(.secondary) }
     }
 
     private func refresh() {
@@ -86,6 +94,7 @@ struct CalendarTaskStatus: View {
         if reminder.calendarEnabled == true {
             Section("Apple Calendar") {
                 if let error = reminder.calendarError { Text(error).foregroundStyle(.orange) }
+                else if reminder.scheduledAt == nil { Text("Add a date to update Calendar. Existing events are kept.") }
                 else if reminder.calendarEventID == nil || reminder.calendarNeedsSync == true { Text("Calendar update pending") }
                 else { Label("Linked to Calendar", systemImage: "calendar") }
                 Button("Retry Calendar sync") { store.retryCalendar(reminder) }

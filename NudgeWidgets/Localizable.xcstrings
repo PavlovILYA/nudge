@@ -1,0 +1,38 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "New reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая задача"
+          }
+        }
+      }
+    },
+    "Open Nudge to record a reminder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Nudge to record a task."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Откройте Nudge, чтобы записать задачу."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

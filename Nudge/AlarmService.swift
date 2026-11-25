@@ -5,44 +5,25 @@ import SwiftUI
 /// The only system boundary. Tests supply closures and never request permissions.
 @MainActor
 struct AlarmService {
+    static let actionsVersion = 3
+
     var authorize: () async throws -> Void = {}
     var schedule: (UUID, String, Date, AlarmSound) async throws -> Void
     var cancel: (UUID) throws -> Void
     var scheduledAlarms: () throws -> [UUID: Date]
+    var scheduleOccurrence: ((UUID, String, Date, AlarmSound, UUID?, UUID) async throws -> Void)? = nil
+    var stop: ((UUID) throws -> Void)? = nil
+    var alertingAlarms: () throws -> Set<UUID> = { [] }
 
     static let live = AlarmService(
         authorize: {
             let manager = AlarmManager.shared
+            if manager.authorizationState == .authorized { return }
             let authorization = try await manager.requestAuthorization()
             guard authorization == .authorized else { throw AlarmError.authorizationDenied }
         },
         schedule: { id, title, date, sound in
-            let manager = AlarmManager.shared
-            try Reminder.validateSnoozeDate(date)
-            if sound.filename != nil, sound.resourceURL() == nil { throw AlarmError.missingSound }
-            let chooseTime = AlarmButton(text: "Snooze", textColor: .white, systemImageName: "clock.arrow.circlepath")
-            let alert: AlarmPresentation.Alert
-            if #available(iOS 26.1, *) {
-                // Modern iOS owns the stop control and may render the custom action as Open.
-                alert = AlarmPresentation.Alert(
-                    title: LocalizedStringResource(stringLiteral: title),
-                    secondaryButton: chooseTime, secondaryButtonBehavior: .custom)
-            } else {
-                alert = AlarmPresentation.Alert(
-                    title: LocalizedStringResource(stringLiteral: title),
-                    stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.circle"),
-                    secondaryButton: chooseTime, secondaryButtonBehavior: .custom)
-            }
-            let attributes = AlarmAttributes<ReminderAlarmMetadata>(
-                presentation: AlarmPresentation(alert: alert), tintColor: .accentColor
-            )
-            let configuration = AlarmManager.AlarmConfiguration(
-                schedule: .fixed(date), attributes: attributes,
-                secondaryIntent: ChooseTimeIntent(reminderID: id.uuidString), sound: sound.alertSound)
-            let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "AlarmScheduling")
-            logger.info("Scheduling id=\(id.uuidString, privacy: .public) mode=\(sound.rawValue, privacy: .public) sound=\(sound.diagnostic, privacy: .public) date=\(date.ISO8601Format(), privacy: .public)")
-            _ = try await manager.schedule(id: id, configuration: configuration)
-            logger.info("Registration accepted id=\(id.uuidString, privacy: .public); delivery/audio/haptics unverified")
+            try await scheduleSystem(id: id, title: title, date: date, sound: sound, occurrenceID: nil, reminderID: id)
         },
         cancel: { id in
             let manager = AlarmManager.shared
@@ -61,8 +42,55 @@ struct AlarmService {
                 if case .fixed(let date) = alarm.schedule { dates[alarm.id] = date }
             }
             return dates
+        },
+        scheduleOccurrence: { id, title, date, sound, occurrenceID, reminderID in
+            try await scheduleSystem(id: id, title: title, date: date, sound: sound, occurrenceID: occurrenceID, reminderID: reminderID)
+        },
+        stop: { id in
+            do { try AlarmManager.shared.stop(id: id) }
+            catch {
+                guard let current = try? AlarmManager.shared.alarms, !current.contains(where: { $0.id == id }) else { throw error }
+            }
+        },
+        alertingAlarms: {
+            Set(try AlarmManager.shared.alarms.filter { $0.state == .alerting }.map(\.id))
         }
     )
+
+    func register(_ id: UUID, title: String, date: Date, sound: AlarmSound, occurrenceID: UUID?, reminderID: UUID) async throws {
+        if let scheduleOccurrence { try await scheduleOccurrence(id, title, date, sound, occurrenceID, reminderID) }
+        else { try await schedule(id, title, date, sound) }
+    }
+
+    private static func scheduleSystem(id: UUID, title: String, date: Date, sound: AlarmSound, occurrenceID: UUID?, reminderID: UUID) async throws {
+        let manager = AlarmManager.shared
+        try Reminder.validateSnoozeDate(date)
+        if sound.filename != nil, sound.resourceURL() == nil { throw AlarmError.missingSound }
+        let chooseTime = AlarmButton(text: "Actions", textColor: .white, systemImageName: "clock.arrow.circlepath")
+        let alert: AlarmPresentation.Alert
+        if #available(iOS 26.1, *) {
+            // Modern iOS owns the stop control and may render the custom action as Open.
+            alert = AlarmPresentation.Alert(
+                title: LocalizedStringResource(stringLiteral: title),
+                secondaryButton: chooseTime, secondaryButtonBehavior: .custom)
+        } else {
+            alert = AlarmPresentation.Alert(
+                title: LocalizedStringResource(stringLiteral: title),
+                stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.circle"),
+                secondaryButton: chooseTime, secondaryButtonBehavior: .custom)
+        }
+        let attributes = AlarmAttributes<ReminderAlarmMetadata>(
+            presentation: AlarmPresentation(alert: alert), tintColor: .accentColor
+        )
+        let configuration = AlarmManager.AlarmConfiguration(
+            schedule: .fixed(date), attributes: attributes,
+            stopIntent: CompleteTaskIntent(reminderID: reminderID.uuidString, occurrenceID: occurrenceID?.uuidString ?? "", alarmID: id.uuidString),
+            secondaryIntent: ChooseTimeIntent(reminderID: reminderID.uuidString, alarmID: id.uuidString), sound: sound.alertSound)
+        let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "AlarmScheduling")
+        logger.info("Scheduling task=\(reminderID.uuidString, privacy: .public) id=\(id.uuidString, privacy: .public) mode=\(sound.rawValue, privacy: .public) sound=\(sound.diagnostic, privacy: .public) date=\(date.ISO8601Format(), privacy: .public)")
+        _ = try await manager.schedule(id: id, configuration: configuration)
+        logger.info("Registration accepted id=\(id.uuidString, privacy: .public); delivery/audio/haptics unverified")
+    }
 
     enum AlarmError: LocalizedError {
         case authorizationDenied, missingSound

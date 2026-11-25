@@ -19,5 +19,20 @@
 			<string>Editor</string>
 		</dict>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nudge records a short phrase only while voice capture is open. Audio is not saved.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Nudge uses on-device recognition to turn your phrase into an editable reminder. Cloud recognition is not used.</string>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.pavlovilya.nudge.voice</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>VOICE_SHORTCUT_TITLE</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>mic</string>
+		</dict>
+	</array>
 </dict>
 </plist>

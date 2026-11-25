@@ -21,7 +21,7 @@ final class ReminderTests: XCTestCase {
         let reminder = try Reminder(title: "Task", scheduledAt: now.addingTimeInterval(60), now: now)
         XCTAssertEqual(reminder.state(at: now), .pending)
         XCTAssertEqual(reminder.state(at: now.addingTimeInterval(60)), .overdue)
-        reminder.alarmState = .absent // A stopped/missing alarm never completes its task.
+        reminder.alarmState = .absent // A missing registration alone does not prove completion.
         XCTAssertNil(reminder.completedAt)
         XCTAssertEqual(reminder.state(at: now.addingTimeInterval(120)), .overdue)
         reminder.completedAt = now.addingTimeInterval(120)
@@ -69,7 +69,7 @@ final class ReminderTests: XCTestCase {
         XCTAssertNotNil(reminder.alarmError)
     }
 
-    func testCancelFailureRetainsIncompleteTaskAndAllowsRetry() throws {
+    func testCancelFailureKeepsDurableCompletionAndAllowsRetry() throws {
         let context = try memoryContext()
         let reminder = try Reminder(title: "Task", scheduledAt: now.addingTimeInterval(60), now: now)
         context.insert(reminder)
@@ -77,7 +77,8 @@ final class ReminderTests: XCTestCase {
         let failing = ReminderStore(context: context, alarms: AlarmService(
             schedule: { _, _, _, _ in }, cancel: { _ in throw TestError.denied }, scheduledAlarms: { [:] }))
         failing.complete(reminder)
-        XCTAssertNil(reminder.completedAt)
+        XCTAssertNotNil(reminder.completedAt)
+        XCTAssertEqual(reminder.alarmNeedsUpdate, true)
         failing.delete(reminder)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Reminder>()), 1)
         XCTAssertNotNil(failing.errorMessage)
@@ -265,7 +266,7 @@ final class ReminderTests: XCTestCase {
             let store = ReminderStore(context: reopened, alarms: AlarmService(
                 schedule: { _, _, _, _ in XCTFail("Never automatically retry interrupted intent") },
                 cancel: { _ in XCTFail("Never cancel on refresh") },
-                scheduledAlarms: { [reminder.alarmID: registered ? target : reminder.scheduledAt] }))
+                scheduledAlarms: { [reminder.alarmID: registered ? target : reminder.scheduledAt!] }))
             store.refresh()
             let saved = try XCTUnwrap(reopened.fetch(FetchDescriptor<Reminder>()).first)
             XCTAssertNil(saved.completedAt)
@@ -321,7 +322,7 @@ final class ReminderTests: XCTestCase {
     }
 
     func testSaveFailuresBeforeAndAfterSchedulingAreRecoverable() async throws {
-        for failingSave in [1, 2] {
+        for failingSave in [1, 3] {
             let context = try memoryContext()
             let original = Date.now.addingTimeInterval(600)
             let reminder = try Reminder(title: "Task", scheduledAt: original)
@@ -378,14 +379,20 @@ final class ReminderTests: XCTestCase {
 
     func testIntentPassesCorrectTaskIDWithoutChangingTasks() async throws {
         defer { SnoozeRequest.shared.reminderID = nil }
+        let context = try memoryContext()
         let id = UUID()
-        _ = try await ChooseTimeIntent(reminderID: id.uuidString).perform()
-        XCTAssertEqual(SnoozeRequest.shared.reminderID, id)
         let another = UUID()
-        _ = try await ChooseTimeIntent(reminderID: another.uuidString).perform()
+        let date = Date.now.addingTimeInterval(600)
+        context.insert(try Reminder(id: id, title: "One", scheduledAt: date))
+        context.insert(try Reminder(id: another, title: "Two", scheduledAt: date))
+        try context.save()
+        let alarms = AlarmService(schedule: { _, _, _, _ in XCTFail("Already future") }, cancel: { _ in XCTFail("Already future") }, scheduledAlarms: { [id: date, another: date] })
+        try await ChooseTimeIntent(reminderID: id.uuidString).open(in: context, alarms: alarms)
+        XCTAssertEqual(SnoozeRequest.shared.reminderID, id)
+        try await ChooseTimeIntent(reminderID: another.uuidString).open(in: context, alarms: alarms)
         XCTAssertEqual(SnoozeRequest.shared.reminderID, another)
         do {
-            _ = try await ChooseTimeIntent(reminderID: "invalid").perform()
+            try await ChooseTimeIntent(reminderID: "invalid").open(in: context, alarms: alarms)
             XCTFail("Invalid ID must fail")
         } catch {
             XCTAssertEqual(SnoozeRequest.shared.reminderID, another)
@@ -402,10 +409,46 @@ final class ReminderTests: XCTestCase {
         let suite = "nudge-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        XCTAssertEqual(AlarmSound(rawValue: defaults.string(forKey: AlarmSound.preferenceKey) ?? "" ) ?? .systemDefault, .systemDefault)
+        XCTAssertEqual(AlarmSound.newReminderDefault, .experimentalVibrationOnly)
+        XCTAssertEqual(AlarmSound.preferred(in: defaults), .experimentalVibrationOnly)
+        XCTAssertNil(defaults.object(forKey: AlarmSound.preferenceKey))
+        for sound in AlarmSound.allCases {
+            defaults.set(sound.rawValue, forKey: AlarmSound.preferenceKey)
+            XCTAssertEqual(AlarmSound.preferred(in: defaults), sound)
+            XCTAssertEqual(defaults.string(forKey: AlarmSound.preferenceKey), sound.rawValue)
+        }
         defaults.set(AlarmSound.experimentalVibrationOnly.rawValue, forKey: AlarmSound.preferenceKey)
         let reopened = try XCTUnwrap(UserDefaults(suiteName: suite))
         XCTAssertEqual(AlarmSound(rawValue: reopened.string(forKey: AlarmSound.preferenceKey) ?? ""), .experimentalVibrationOnly)
+    }
+
+    func testCreationUsesOneDefaultWithoutOverwritingExistingSoundPreference() async throws {
+        let defaults = UserDefaults.standard
+        let previous = defaults.object(forKey: AlarmSound.preferenceKey)
+        defer {
+            if let previous { defaults.set(previous, forKey: AlarmSound.preferenceKey) }
+            else { defaults.removeObject(forKey: AlarmSound.preferenceKey) }
+        }
+        var scheduled: [AlarmSound] = []
+        let alarms = AlarmService(schedule: { _, _, _, sound in scheduled.append(sound) }, cancel: { _ in }, scheduledAlarms: { [:] })
+        let context = try memoryContext()
+        let store = ReminderStore(context: context, alarms: alarms)
+        let cases: [(AlarmSound?, AlarmSound?, AlarmSound)] = [
+            (nil, nil, .experimentalVibrationOnly),
+            (.systemDefault, nil, .systemDefault),
+            (.soft, nil, .soft),
+            (.soft, .prominent, .prominent)
+        ]
+        for (preference, override, expected) in cases {
+            if let preference { defaults.set(preference.rawValue, forKey: AlarmSound.preferenceKey) }
+            else { defaults.removeObject(forKey: AlarmSound.preferenceKey) }
+            let saved = await store.create(title: "New task", date: .now.addingTimeInterval(600), sound: override)
+            XCTAssertTrue(saved)
+            let reminder = try XCTUnwrap(store.reminder(id: XCTUnwrap(store.lastCreatedID)))
+            XCTAssertEqual(reminder.sound, expected)
+            XCTAssertEqual(scheduled.last, expected)
+            XCTAssertEqual(defaults.string(forKey: AlarmSound.preferenceKey), preference?.rawValue)
+        }
     }
 
     func testExactCAFNamesAndAlertSoundMapping() throws {

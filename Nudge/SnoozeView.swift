@@ -9,6 +9,8 @@ struct SnoozeView: View {
     @State private var selectedInterval: SnoozeInterval?
     @State private var date = Date.now.addingTimeInterval(300)
     @State private var choosingDate = false
+    @State private var minutes = SnoozeMinutes()
+    @FocusState private var editingMinutes: Bool
 
     private var columns: [GridItem] {
         dynamicTypeSize.isAccessibilitySize
@@ -21,7 +23,7 @@ struct SnoozeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(reminder.title).font(.headline)
-                    LabeledContent("Next alarm") {
+                    LabeledContent(reminder.alarmState == .registered ? String(localized: "Next alarm") : String(localized: "Choose an alarm time")) {
                         Text(date, format: .dateTime.month().day().hour().minute())
                     }
                     .font(.subheadline)
@@ -49,6 +51,30 @@ struct SnoozeView: View {
                             .accessibilityAddTraits(selectedInterval == interval ? .isSelected : [])
                         }
                     }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Slider(value: Binding(get: { minutes.sliderValue }, set: { minutes.slide(to: $0) }), in: 1...120, step: 1)
+                            .accessibilityLabel("Snooze minutes")
+                            .accessibilityValue(Text("\(minutes.value ?? 1) minutes"))
+                        HStack {
+                            Text("Minutes")
+                            TextField("Minutes", text: $minutes.text)
+                                .keyboardType(.numberPad).focused($editingMinutes)
+                                .textFieldStyle(.roundedBorder).frame(maxWidth: 100)
+                                .accessibilityLabel("Snooze minutes")
+                        }
+                        if let value = minutes.value, value > 120 {
+                            Text("Slider covers 1–120 minutes; the entered interval is kept.").font(.caption).foregroundStyle(.secondary)
+                        } else if minutes.value == nil {
+                            Text("Enter a whole number from 1 to 1440.").font(.caption).foregroundStyle(.orange)
+                        }
+                        Button("Snooze for \(minutes.value ?? 0) minutes") { confirmMinutes() }
+                            .buttonStyle(.borderedProminent).frame(minHeight: 44).disabled(minutes.value == nil)
+                    }
+                    if let future = reminder.nextAlarmAt, future > .now, reminder.alarmState == .registered {
+                        Text("Already snoozed until \(future.formatted(date: .omitted, time: .shortened)). Closing keeps this alarm.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    if let error = reminder.alarmError, store.errorMessage == nil { Text(error).foregroundStyle(.orange) }
                     Button("Other date and time", systemImage: "calendar") {
                         selectedInterval = nil
                         withAnimation { choosingDate.toggle() }
@@ -62,6 +88,9 @@ struct SnoozeView: View {
                             .frame(minHeight: 44)
                             .disabled(date <= .now)
                     }
+                    Button("Turn off alarm", systemImage: "alarm.slash") {
+                        if store.disableAlarm(reminder) { dismiss() }
+                    }
                     Button("Edit task", systemImage: "pencil", action: onEdit)
                         .frame(minHeight: 44)
                     if let error = store.errorMessage {
@@ -71,16 +100,32 @@ struct SnoozeView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Snooze")
+            .navigationTitle("Actions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Snooze for \(minutes.value ?? 0) minutes") { confirmMinutes() }.disabled(minutes.value == nil || store.isBusy)
+                }
             }
             .disabled(store.isBusy)
             .interactiveDismissDisabled(store.isBusy)
         }
+        .task {
+            store.refresh()
+            if store.isAlerting(reminder) { _ = await store.prepareActions(id: reminder.id, expectedAlarmID: reminder.alarmID) }
+            if let future = reminder.nextAlarmAt { date = future }
+        }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private func confirmMinutes() {
+        guard let value = minutes.value else { return }
+        editingMinutes = false
+        selectedInterval = nil
+        save(Date.now.addingTimeInterval(Double(value) * 60))
     }
 
     private func save(_ date: Date) {

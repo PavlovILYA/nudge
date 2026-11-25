@@ -236,7 +236,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выполнено"
+            "value": "Готово"
           }
         }
       }
@@ -1340,7 +1340,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Отключить сигнал"
+            "value": "Отключить будильник"
           }
         }
       }
@@ -1949,6 +1949,2038 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось обновить календарь. Задача сохранена; состояние сигнала показано отдельно. Повторите синхронизацию."
+          }
+        }
+      }
+    },
+    "Voice reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создание голосом"
+          }
+        }
+      }
+    },
+    "Record reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать задачу"
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идёт запись"
+          }
+        }
+      }
+    },
+    "Speak one reminder in Russian, then check it before creating.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speak one reminder in Russian, then check it before creating."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Произнесите одно напоминание по-русски и проверьте результат перед созданием."
+          }
+        }
+      }
+    },
+    "Stop recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop recording"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановить запись"
+          }
+        }
+      }
+    },
+    "Cancel recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel recording"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить запись"
+          }
+        }
+      }
+    },
+    "Preparing offline recognition…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing offline recognition…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка локального распознавания…"
+          }
+        }
+      }
+    },
+    "Processing…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обработка…"
+          }
+        }
+      }
+    },
+    "Transcript": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcript"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Распознанный текст"
+          }
+        }
+      }
+    },
+    "You can type or correct the phrase. Interpretation updates after editing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can type or correct the phrase. Interpretation updates after editing."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Можно ввести или исправить фразу. После изменения текста результат обновится."
+          }
+        }
+      }
+    },
+    "Check the reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте напоминание"
+          }
+        }
+      }
+    },
+    "Repeating commands are not supported. Only a one-time reminder can be created here.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeating commands are not supported. Only a one-time reminder can be created here."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Команды с повторами не поддерживаются. Здесь можно создать только одноразовое напоминание."
+          }
+        }
+      }
+    },
+    "Interpretation is incomplete or ambiguous. Check the title and choose the correct date and time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interpretation is incomplete or ambiguous. Check the title and choose the correct date and time."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фраза разобрана не полностью или неоднозначно. Проверьте название и выберите правильные дату и время."
+          }
+        }
+      }
+    },
+    "Set date and time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set date and time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Указать дату и время"
+          }
+        }
+      }
+    },
+    "Create": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать"
+          }
+        }
+      }
+    },
+    "Record again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record again"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записать заново"
+          }
+        }
+      }
+    },
+    "Offline Russian recognition": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline Russian recognition"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Русский язык без интернета"
+          }
+        }
+      }
+    },
+    "Audio stays on this device. Raw recordings are not saved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio stays on this device. Raw recordings are not saved."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аудио остаётся на устройстве. Исходные записи не сохраняются."
+          }
+        }
+      }
+    },
+    "Install system language resources": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install system language resources"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установить системные ресурсы языка"
+          }
+        }
+      }
+    },
+    "Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загружаются только системные ресурсы Apple. Голос и текст никуда не отправляются."
+          }
+        }
+      }
+    },
+    "Check availability again": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check availability again"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверить доступность ещё раз"
+          }
+        }
+      }
+    },
+    "Task saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task saved"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача сохранена"
+          }
+        }
+      }
+    },
+    "Open task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть задачу"
+          }
+        }
+      }
+    },
+    "Could not interpret the phrase. Edit the text or enter the title and time manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not interpret the phrase. Edit the text or enter the title and time manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось разобрать фразу. Исправьте текст или введите название и время вручную."
+          }
+        }
+      }
+    },
+    "Check the task title and choose a future date and time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the task title and choose a future date and time."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте название задачи и выберите будущие дату и время."
+          }
+        }
+      }
+    },
+    "Offline Russian recognition is unavailable. Install system language resources if offered, or enter the text manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline Russian recognition is unavailable. Install system language resources if offered, or enter the text manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальное распознавание русского языка недоступно. Установите системные ресурсы, если эта возможность предложена, или введите текст вручную."
+          }
+        }
+      }
+    },
+    "Could not install system speech resources. Check connectivity and free storage, then retry. No speech was uploaded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not install system speech resources. Check connectivity and free storage, then retry. No speech was uploaded."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось установить системные ресурсы речи. Проверьте подключение и свободное место, затем повторите. Голос не отправлялся."
+          }
+        }
+      }
+    },
+    "Recording stopped. You can edit the partial text or record again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recording stopped. You can edit the partial text or record again."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись остановлена. Можно исправить частичный текст или записать фразу ещё раз."
+          }
+        }
+      }
+    },
+    "Microphone or speech permission is denied. Allow access in iOS Settings, or enter text manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone or speech permission is denied. Allow access in iOS Settings, or enter text manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нет разрешения на микрофон или распознавание речи. Разрешите доступ в настройках iOS или введите текст вручную."
+          }
+        }
+      }
+    },
+    "Offline recognition could not finish. Check the text, retry recording, or type manually. No cloud recognition is used.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline recognition could not finish. Check the text, retry recording, or type manually. No cloud recognition is used."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить локальное распознавание. Проверьте текст, повторите запись или введите фразу вручную. Облачное распознавание не используется."
+          }
+        }
+      }
+    },
+    "Open the requested screen?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the requested screen?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть запрошенный экран?"
+          }
+        }
+      }
+    },
+    "Discard input and open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard input and open"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменить ввод и открыть"
+          }
+        }
+      }
+    },
+    "Keep editing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep editing"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить редактирование"
+          }
+        }
+      }
+    },
+    "Unsaved input in the current screen will be discarded. Your saved tasks are kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsaved input in the current screen will be discarded. Your saved tasks are kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Несохранённый ввод на текущем экране будет потерян. Сохранённые задачи останутся."
+          }
+        }
+      }
+    },
+    "Getting ready…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting ready…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка…"
+          }
+        }
+      }
+    },
+    "Finishing recording…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing recording…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершение записи…"
+          }
+        }
+      }
+    },
+    "Speak your reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speak your reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скажите, о чём напомнить"
+          }
+        }
+      }
+    },
+    "Type a reminder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type a reminder"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ввести текстом"
+          }
+        }
+      }
+    },
+    "Edit phrase": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit phrase"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить фразу"
+          }
+        }
+      }
+    },
+    "Choose when to remind you.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose when to remind you."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите дату и время напоминания."
+          }
+        }
+      }
+    },
+    "Check the title and time.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the title and time."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте название и время."
+          }
+        }
+      }
+    },
+    "Experimental silent signal: silence and vibration are not guaranteed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimental silent signal: silence and vibration are not guaranteed."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экспериментальный бесшумный сигнал: тишина и вибрация не гарантированы."
+          }
+        }
+      }
+    },
+    "Sound and Calendar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound and Calendar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звук и Календарь"
+          }
+        }
+      }
+    },
+    "Recognition settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки распознавания"
+          }
+        }
+      }
+    },
+    "Actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Действия"
+          }
+        }
+      }
+    },
+    "Alarm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильник"
+          }
+        }
+      }
+    },
+    "Enable alarm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable alarm"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить будильник"
+          }
+        }
+      }
+    },
+    "Change time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить время"
+          }
+        }
+      }
+    },
+    "Completed tasks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed tasks"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполненные"
+          }
+        }
+      }
+    },
+    "Options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Options"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Меню"
+          }
+        }
+      }
+    },
+    "New task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая задача"
+          }
+        }
+      }
+    },
+    "Add date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add date"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить дату и время"
+          }
+        }
+      }
+    },
+    "Remove date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove date"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать дату"
+          }
+        }
+      }
+    },
+    "Correct text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct text"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Исправить текст"
+          }
+        }
+      }
+    },
+    "Task saved, but its alarm could not be enabled. Open the task to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task saved, but its alarm could not be enabled. Open the task to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача сохранена, но будильник не удалось включить. Откройте задачу и повторите попытку."
+          }
+        }
+      }
+    },
+    "Alarm cancellation is pending. Open Nudge to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm cancellation is pending. Open Nudge to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильник пока не удалось отключить. Откройте Nudge для повторной попытки."
+          }
+        }
+      }
+    },
+    "Task completed. Its alarm could not be cancelled yet; open Nudge to retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task completed. Its alarm could not be cancelled yet; open Nudge to retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Задача выполнена, но будильник пока не удалось отменить. Откройте Nudge для повторной попытки."
+          }
+        }
+      }
+    },
+    "Task completion could not finish. Open Nudge to check and retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task completion could not finish. Open Nudge to check and retry."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось завершить операцию. Откройте Nudge, проверьте задачу и повторите попытку."
+          }
+        }
+      }
+    },
+    "The alarm was turned off.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The alarm was turned off."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильник отключён."
+          }
+        }
+      }
+    },
+    "Changing the task time updates its Calendar event. Snooze changes only the next alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changing the task time updates its Calendar event. Snooze changes only the next alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменение срока задачи обновляет событие Календаря. Отложить — изменить только следующий сигнал."
+          }
+        }
+      }
+    },
+    "Add a date to update Calendar. Existing events are kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a date to update Calendar. Existing events are kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте дату для обновления Календаря. Существующее событие сохранено."
+          }
+        }
+      }
+    },
+    "Create task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create task"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Создать задачу"
+          }
+        }
+      }
+    },
+    "Russian dictation is unavailable. You can enter the text manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Russian dictation is unavailable. You can enter the text manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Русская диктовка недоступна. Введите текст вручную."
+          }
+        }
+      }
+    },
+    "Install Apple dictation resources in Settings, or enter text manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install Apple dictation resources in Settings, or enter text manually."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установите ресурсы диктовки Apple в настройках или введите текст вручную."
+          }
+        }
+      }
+    },
+    "Microphone access is denied. Allow it in Settings, or type the request.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone access is denied. Allow it in Settings, or type the request."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к микрофону запрещён. Разрешите его в настройках iOS или введите текст."
+          }
+        }
+      }
+    },
+    "Checking Apple dictation…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking Apple dictation…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверка диктовки Apple…"
+          }
+        }
+      }
+    },
+    "Russian dictation resources are installed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Russian dictation resources are installed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ресурсы русской диктовки установлены"
+          }
+        }
+      }
+    },
+    "Apple dictation resources are not installed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple dictation resources are not installed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ресурсы диктовки Apple не установлены"
+          }
+        }
+      }
+    },
+    "Installing Apple dictation resources…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installing Apple dictation resources…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установка ресурсов диктовки Apple…"
+          }
+        }
+      }
+    },
+    "Russian dictation is unavailable on this device": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Russian dictation is unavailable on this device"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Русская диктовка недоступна на этом устройстве"
+          }
+        }
+      }
+    },
+    "Dictation resource installation failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dictation resource installation failed"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось установить ресурсы диктовки"
+          }
+        }
+      }
+    },
+    "These are Apple's speech recognition resources, not an LLM. Audio stays on this device.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These are Apple's speech recognition resources, not an LLM. Audio stays on this device."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системные ресурсы распознавания речи Apple. Аудио остаётся на устройстве."
+          }
+        }
+      }
+    },
+    "The task occurrence changed. Open the task to check its next alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The task occurrence changed. Open the task to check its next alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущее выполнение задачи изменилось. Откройте задачу, чтобы проверить следующий сигнал."
+          }
+        }
+      }
+    },
+    "Occurrence completed. The next alarm needs a retry in Nudge.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occurrence completed. The next alarm needs a retry in Nudge."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выполнение сохранено. Откройте Nudge, чтобы повторить установку следующего сигнала."
+          }
+        }
+      }
+    },
+    "Hourly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hourly"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый час"
+          }
+        }
+      }
+    },
+    "Daily": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый день"
+          }
+        }
+      }
+    },
+    "Weekly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждую неделю"
+          }
+        }
+      }
+    },
+    "Monthly": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monthly"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый месяц"
+          }
+        }
+      }
+    },
+    "Every %lld hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld hours"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые %lld ч"
+          }
+        }
+      }
+    },
+    "Every %lld days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld days"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интервал: %lld дн."
+          }
+        }
+      }
+    },
+    "Every %lld weeks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld weeks"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интервал: %lld нед."
+          }
+        }
+      }
+    },
+    "Every %lld months": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld months"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интервал: %lld мес."
+          }
+        }
+      }
+    },
+    "Day %lld of each month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day %lld of each month"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ежемесячно, число %lld"
+          }
+        }
+      }
+    },
+    "Day %lld, every %lld months": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day %lld, every %lld months"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Число %lld, интервал: %lld мес."
+          }
+        }
+      }
+    },
+    "Check the repeat interval, days and timezone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the repeat interval, days and timezone."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте интервал, дни повторения и часовой пояс."
+          }
+        }
+      }
+    },
+    "Clear text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear text"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очистить текст"
+          }
+        }
+      }
+    },
+    "Clear the full request?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the full request?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить весь текст запроса?"
+          }
+        }
+      }
+    },
+    "Choose repetition manually; the current parser does not infer repeat rules.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose repetition manually; the current parser does not infer repeat rules."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите повторение вручную — оно не определяется из фразы."
+          }
+        }
+      }
+    },
+    "Continue dictation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue dictation"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнить голосом"
+          }
+        }
+      }
+    },
+    "Full request": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full request"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Полный запрос"
+          }
+        }
+      }
+    },
+    "Open recognition settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open recognition settings"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки распознавания"
+          }
+        }
+      }
+    },
+    "Snooze for selected minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze for selected minutes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить на выбранный интервал"
+          }
+        }
+      }
+    },
+    "Never": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не повторять"
+          }
+        }
+      }
+    },
+    "Custom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настроить"
+          }
+        }
+      }
+    },
+    "Repeat": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторение"
+          }
+        }
+      }
+    },
+    "Repeat unit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat unit"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Период"
+          }
+        }
+      }
+    },
+    "Hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hours"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Часы"
+          }
+        }
+      }
+    },
+    "Days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Days"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дни"
+          }
+        }
+      }
+    },
+    "Weeks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weeks"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Недели"
+          }
+        }
+      }
+    },
+    "Selected weekdays": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected weekdays"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дни недели"
+          }
+        }
+      }
+    },
+    "Months": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Months"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Месяцы"
+          }
+        }
+      }
+    },
+    "Specific day of month": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Specific day of month"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конкретное число месяца"
+          }
+        }
+      }
+    },
+    "Interval: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval: %lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Интервал: %lld"
+          }
+        }
+      }
+    },
+    "Day: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day: %lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Число: %lld"
+          }
+        }
+      }
+    },
+    "One occurrence waits for Done. The next alarm is scheduled after completion; missed occurrences do not create an autonomous alarm chain.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One occurrence waits for Done. The next alarm is scheduled after completion; missed occurrences do not create an autonomous alarm chain."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующий сигнал ставится после «Готово». Пока задача не выполнена, новые сигналы автоматически не появляются."
+          }
+        }
+      }
+    },
+    "Hourly recurrence is managed by Nudge. Calendar shows the original event only.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hourly recurrence is managed by Nudge. Calendar shows the original event only."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Почасовые повторения обрабатывает Nudge. В календаре показано только исходное событие."
+          }
+        }
+      }
+    },
+    "Next occurrence": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next occurrence"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следующее выполнение"
+          }
+        }
+      }
+    },
+    "Finish series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish series"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить серию"
+          }
+        }
+      }
+    },
+    "Completed occurrences": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Completed occurrences"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прошлые выполнения"
+          }
+        }
+      }
+    },
+    "Active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Активные"
+          }
+        }
+      }
+    },
+    "Occurrence ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occurrence ID"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идентификатор выполнения"
+          }
+        }
+      }
+    },
+    "Task text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст задачи"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task text"
+          }
+        }
+      }
+    },
+    "Minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минуты"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes"
+          }
+        }
+      }
+    },
+    "Every minute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждую минуту"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every minute"
+          }
+        }
+      }
+    },
+    "Every %lld minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые %lld мин"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld minutes"
+          }
+        }
+      }
+    },
+    "Minute and hourly recurrence is managed by Nudge. Calendar shows the original event only.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторения по минутам и часам обрабатывает Nudge. В календаре показано только исходное событие."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minute and hourly recurrence is managed by Nudge. Calendar shows the original event only."
+          }
+        }
+      }
+    },
+    "System Stop completes one occurrence and schedules the next. Done in Nudge finishes the series. Missed occurrences do not trigger new alarms.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системная кнопка «Остановить» выполняет один повтор и ставит следующий сигнал. «Готово» в Nudge завершает всю серию. Без выполнения новые сигналы не появляются."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Stop completes one occurrence and schedules the next. Done in Nudge finishes the series. Missed occurrences do not trigger new alarms."
+          }
+        }
+      }
+    },
+    "Alarm ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm ID"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идентификатор сигнала"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия"
+          }
+        }
+      }
+    },
+    "Snooze minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze minutes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минуты отложения"
+          }
+        }
+      }
+    },
+    "Slider covers 1–120 minutes; the entered interval is kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slider covers 1–120 minutes; the entered interval is kept."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Шкала — 1–120 минут. Введённый больший интервал сохранён."
+          }
+        }
+      }
+    },
+    "Enter a whole number from 1 to 1440.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a whole number from 1 to 1440."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите целое число от 1 до 1440."
+          }
+        }
+      }
+    },
+    "Snooze for %lld minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snooze for %lld minutes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отложить на %lld мин"
+          }
+        }
+      }
+    },
+    "Already snoozed until %@. Closing keeps this alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already snoozed until %@. Closing keeps this alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Уже отложено до %@. При закрытии окна этот сигнал сохранится."
+          }
+        }
+      }
+    },
+    "Choose an alarm time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an alarm time"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите время сигнала"
+          }
+        }
+      }
+    },
+    "Actions could not secure the next alarm. Choose a time to retry, or turn off the alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions could not secure the next alarm. Choose a time to retry, or turn off the alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось надёжно отложить сигнал. Выберите время для повтора или отключите будильник."
+          }
+        }
+      }
+    },
+    "Actions could not be opened safely. Open Nudge to check the alarm.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions could not be opened safely. Open Nudge to check the alarm."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось безопасно открыть действия. Откройте Nudge и проверьте будильник."
           }
         }
       }
