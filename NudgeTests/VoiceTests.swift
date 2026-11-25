@@ -581,3 +581,26 @@ final class VoiceTextBufferTests: XCTestCase {
         XCTAssertEqual(input.text, "")
     }
 }
+
+final class SnoozeAndVersionTests: XCTestCase {
+    func testMinutesSliderAndKeyboardKeepActualOutOfScaleValue() {
+        var minutes = SnoozeMinutes()
+        minutes.slide(to: 35)
+        XCTAssertEqual(minutes.value, 35)
+        XCTAssertEqual(minutes.text, "35")
+        minutes.text = "90"
+        XCTAssertEqual(minutes.sliderValue, 90)
+        minutes.text = "1440"
+        XCTAssertEqual(minutes.value, 1440)
+        XCTAssertEqual(minutes.sliderValue, 120)
+        XCTAssertEqual(minutes.text, "1440")
+        for invalid in ["", "0", "-1", "1.5", "1441", " 35", "abc", "999999999999999999999"] {
+            minutes.text = invalid
+            XCTAssertNil(minutes.value)
+        }
+    }
+    func testInstalledVersionUsesBundleValues() {
+        XCTAssertEqual(InstalledVersion(info: ["CFBundleShortVersionString": "0.5.0", "CFBundleVersion": "7"]).display, "0.5.0.7")
+        XCTAssertEqual(InstalledVersion(info: ["CFBundleShortVersionString": "0.5.0", "CFBundleVersion": "42"]).display, "0.5.0.42")
+    }
+}

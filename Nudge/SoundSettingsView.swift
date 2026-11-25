@@ -20,6 +20,9 @@ struct SoundSettingsView: View {
                 SoundDetails(sound: defaultSound, alwaysWarn: true)
                 CalendarSettingsSection()
                 DictationResourcesSection()
+                Section {
+                    LabeledContent("Version", value: InstalledVersion(info: Bundle.main.infoDictionary ?? [:]).display)
+                }
             }
             .navigationTitle("Settings")
             .toolbar {

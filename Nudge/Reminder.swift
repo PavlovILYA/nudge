@@ -116,3 +116,25 @@ enum SnoozeInterval: Int, CaseIterable, Identifiable {
     var id: Int { rawValue }
     func date(from now: Date) -> Date { now.addingTimeInterval(Double(rawValue * 60)) }
 }
+
+/// Shared slider/keyboard validation; an out-of-scale value is never truncated.
+struct SnoozeMinutes: Sendable {
+    var text = "35"
+    var value: Int? {
+        guard !text.isEmpty, text.allSatisfy({ $0.isASCII && $0.isNumber }),
+              let value = Int(text), (1...1440).contains(value) else { return nil }
+        return value
+    }
+    var sliderValue: Double { Double(min(120, max(1, value ?? 1))) }
+    mutating func slide(to value: Double) { guard value.isFinite else { return }; text = String(Int(min(120, max(1, value.rounded())))) }
+}
+
+struct InstalledVersion {
+    let marketing: String
+    let build: String
+    init(info: [String: Any]) {
+        marketing = info["CFBundleShortVersionString"] as? String ?? "—"
+        build = info["CFBundleVersion"] as? String ?? "—"
+    }
+    var display: String { marketing + "." + build }
+}

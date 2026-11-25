@@ -206,7 +206,7 @@
 		000000000000000000000022 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Nudge;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -230,7 +230,7 @@
 		000000000000000000000023 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Nudge;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -281,7 +281,7 @@
         };
 		000000000000000000000916 = {isa = XCBuildConfiguration; buildSettings = {
             APPLICATION_EXTENSION_API_ONLY = YES;
-            CURRENT_PROJECT_VERSION = 6;
+            CURRENT_PROJECT_VERSION = 7;
             MARKETING_VERSION = 0.5.0;
             GENERATE_INFOPLIST_FILE = YES;
             INFOPLIST_FILE = NudgeWidgets/Info.plist;
@@ -297,7 +297,7 @@
         }; name = Debug; };
 		000000000000000000000917 = {isa = XCBuildConfiguration; buildSettings = {
             APPLICATION_EXTENSION_API_ONLY = YES;
-            CURRENT_PROJECT_VERSION = 6;
+            CURRENT_PROJECT_VERSION = 7;
             MARKETING_VERSION = 0.5.0;
             GENERATE_INFOPLIST_FILE = YES;
             INFOPLIST_FILE = NudgeWidgets/Info.plist;

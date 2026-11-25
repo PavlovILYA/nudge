@@ -105,13 +105,15 @@ jobs:
           import pathlib
           import plistlib
           import subprocess
+          import re
 
           app = pathlib.Path("build/Build/Products") / os.environ["PRODUCTS"] / "Nudge.app"
           with (app / "Info.plist").open("rb") as source:
               info = plistlib.load(source)
           assert info["CFBundleIdentifier"] == "com.pavlovilya.nudge"
           assert info["CFBundleShortVersionString"] == "0.5.0"
-          assert info["CFBundleVersion"] == "6"
+          expected_builds = set(re.findall(r"CURRENT_PROJECT_VERSION = (\d+);", pathlib.Path("Nudge.xcodeproj/project.pbxproj").read_text()))
+          assert expected_builds == {info["CFBundleVersion"]}
           assert info["MinimumOSVersion"] == "26.0"
           icon = info["CFBundleIcons"]["CFBundlePrimaryIcon"]
           assert icon["CFBundleIconName"] == "AppIcon"
@@ -150,15 +152,17 @@ jobs:
               assert sound.is_file(), f"Missing sound resource: {sound}"
               assert sound.read_bytes()[:4] == b"caff"
               subprocess.run(["afinfo", str(sound)], check=True)
-          artifact = f"Nudge-{info['CFBundleShortVersionString']}-{os.environ['SUFFIX']}"
+          artifact = f"Nudge-{info['CFBundleShortVersionString']}-{info['CFBundleVersion']}-{os.environ['SUFFIX']}"
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"artifact={artifact}\n")
+              output.write(f"ipa=Nudge-{info['CFBundleShortVersionString']}-{info['CFBundleVersion']}-Unsigned.ipa\n")
           PYTHON
 
       - name: Package application bundle
         env:
           PRODUCTS: ${{ matrix.products }}
           ARTIFACT: ${{ steps.metadata.outputs.artifact }}
+          IPA: ${{ steps.metadata.outputs.ipa }}
         run: |
           test -d "build/Build/Products/$PRODUCTS/Nudge.app"
           mkdir -p artifacts
@@ -168,7 +172,7 @@ jobs:
           if [ "$PRODUCTS" = "Release-iphoneos" ]; then
             mkdir -p ipa-stage/Payload
             ditto "build/Build/Products/$PRODUCTS/Nudge.app" ipa-stage/Payload/Nudge.app
-            (cd ipa-stage && /usr/bin/zip -q -r ../artifacts/Nudge-0.5.0-6-Unsigned.ipa Payload)
+            (cd ipa-stage && /usr/bin/zip -q -r "../artifacts/$IPA" Payload)
           fi
 
       - name: Upload application artifacts
