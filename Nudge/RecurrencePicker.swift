@@ -30,8 +30,10 @@ struct RecurrencePicker: View {
         if rule != nil, mode == .custom {
             Picker("Repeat unit", selection: Binding(get: { rule?.unit ?? .days }, set: { value in
                 rule?.unit = value
+                rule?.interval = min(rule?.interval ?? 1, rule?.maximumInterval ?? 365)
                 if value == .weekdays { rule?.interval = 1; rule?.weekdays = [Calendar.current.component(.weekday, from: date ?? .now)] }
             })) {
+                Text("Minutes").tag(RecurrenceRule.Unit.minutes)
                 Text("Hours").tag(RecurrenceRule.Unit.hours)
                 Text("Days").tag(RecurrenceRule.Unit.days)
                 Text("Weeks").tag(RecurrenceRule.Unit.weeks)
@@ -47,7 +49,7 @@ struct RecurrencePicker: View {
                     }))
                 }
             } else {
-                Stepper("Interval: \(rule?.interval ?? 1)", value: Binding(get: { rule?.interval ?? 1 }, set: { rule?.interval = $0 }), in: 1...365)
+                Stepper("Interval: \(rule?.interval ?? 1)", value: Binding(get: { rule?.interval ?? 1 }, set: { rule?.interval = $0 }), in: 1...(rule?.maximumInterval ?? 365))
             }
             if rule?.unit == .months {
                 Toggle("Specific day of month", isOn: Binding(get: { rule?.monthDay != nil }, set: { rule?.monthDay = $0 ? Calendar.current.component(.day, from: date ?? .now) : nil }))
@@ -58,7 +60,7 @@ struct RecurrencePicker: View {
         }
         if let rule {
             Text(rule.title).font(.caption).foregroundStyle(.secondary)
-            Text("One occurrence waits for Done. The next alarm is scheduled after completion; missed occurrences do not create an autonomous alarm chain.")
+            Text("System Stop completes one occurrence and schedules the next. Done in Nudge finishes the series. Missed occurrences do not trigger new alarms.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }

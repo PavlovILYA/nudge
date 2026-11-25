@@ -1,17 +1,20 @@
 import Foundation
 
 /// Calendar rules use the selected timezone and original wall-clock time.
-/// Hours are elapsed intervals. Missing month days are skipped, never clamped.
+/// Minutes and hours are elapsed intervals. Missing month days are skipped, never clamped.
 struct RecurrenceRule: Codable, Equatable, Sendable {
-    enum Unit: String, Codable, CaseIterable, Sendable { case hours, days, weeks, weekdays, months }
+    enum Unit: String, Codable, CaseIterable, Sendable { case minutes, hours, days, weeks, weekdays, months }
     var unit: Unit
     var interval = 1
     var weekdays: [Int] = [] // Calendar weekday: Sunday = 1.
     var monthDay: Int?
     var timeZoneID = TimeZone.current.identifier
 
+    var maximumInterval: Int { unit == .minutes ? 1440 : 365 }
+    var isElapsedInterval: Bool { unit == .minutes || unit == .hours }
+
     func validate() throws {
-        guard (1...365).contains(interval), TimeZone(identifier: timeZoneID) != nil,
+        guard (1...maximumInterval).contains(interval), TimeZone(identifier: timeZoneID) != nil,
               monthDay.map({ (1...31).contains($0) }) ?? true else { throw RuleError.invalid }
         if unit == .weekdays {
             guard interval == 1, !weekdays.isEmpty, weekdays.allSatisfy({ (1...7).contains($0) }) else { throw RuleError.invalid }
@@ -20,9 +23,9 @@ struct RecurrenceRule: Codable, Equatable, Sendable {
     func next(after date: Date, anchor: Date) throws -> Date {
         try validate()
         guard date.timeIntervalSince1970.isFinite, anchor.timeIntervalSince1970.isFinite, abs(date.timeIntervalSince1970) < 1e12, abs(anchor.timeIntervalSince1970) < 1e12 else { throw RuleError.invalid }
-        if unit == .hours {
+        if isElapsedInterval {
             if date < anchor { return anchor }
-            let step = Double(interval) * 3600
+            let step = Double(interval) * (unit == .minutes ? 60 : 3600)
             return anchor.addingTimeInterval(max(1, floor(date.timeIntervalSince(anchor) / step) + 1) * step)
         }
         var calendar = Calendar(identifier: .gregorian)
@@ -63,7 +66,7 @@ struct RecurrenceRule: Codable, Equatable, Sendable {
                       let candidate = atClock(target), candidate > date else { continue }
                 return candidate
             }
-        case .hours: break
+        case .minutes, .hours: break
         }
         throw RuleError.noDate
     }
@@ -84,6 +87,7 @@ struct RecurrenceRule: Codable, Equatable, Sendable {
 
     var title: String {
         switch unit {
+        case .minutes: return interval == 1 ? String(localized: "Every minute") : String(localized: "Every \(interval) minutes")
         case .hours: return interval == 1 ? String(localized: "Hourly") : String(localized: "Every \(interval) hours")
         case .days: return interval == 1 ? String(localized: "Daily") : String(localized: "Every \(interval) days")
         case .weeks: return interval == 1 ? String(localized: "Weekly") : String(localized: "Every \(interval) weeks")

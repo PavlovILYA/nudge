@@ -28,11 +28,11 @@ struct CalendarRequest {
     var url: URL { ReminderLink.url(for: id) }
     var notes: String {
         var text = String(localized: "Managed by Nudge. Edit this task in Nudge.") + "\n" + Self.marker(for: id)
-        if recurrence?.unit == .hours { text += "\n" + String(localized: "Hourly recurrence is managed by Nudge. Calendar shows the original event only.") }
+        if recurrence?.isElapsedInterval == true { text += "\n" + String(localized: "Minute and hourly recurrence is managed by Nudge. Calendar shows the original event only.") }
         return text
     }
     var nativeRecurrence: EKRecurrenceRule? {
-        guard let recurrence, recurrence.unit != .hours else { return nil }
+        guard let recurrence, !recurrence.isElapsedInterval else { return nil }
         let frequency: EKRecurrenceFrequency = recurrence.unit == .days ? .daily : recurrence.unit == .months ? .monthly : .weekly
         let days = recurrence.unit == .weekdays ? recurrence.weekdays.sorted().compactMap { EKWeekday(rawValue: $0).map { EKRecurrenceDayOfWeek($0) } } : nil
         var calendar = Calendar(identifier: .gregorian)

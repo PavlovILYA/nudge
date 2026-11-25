@@ -636,6 +636,26 @@ final class RecurrenceDateTests: XCTestCase {
             (RecurrenceRule(unit: .weekdays, weekdays: [3, 5], timeZoneID: "Europe/Moscow"), "2026-11-26T06:00:00Z")
         ] { XCTAssertEqual(try rule.next(after: anchor, anchor: anchor), date(expected)) }
     }
+    func testMinuteIntervalsStayOnAnchorAcrossMidnightAndRoundTripOldRules() throws {
+        let anchor = date("2026-11-24T23:58:30Z")
+        let minutes = try XCTUnwrap(RecurrenceRule.Unit(rawValue: "minutes"))
+        for (interval, expected) in [(1, "2026-11-24T23:59:30Z"), (5, "2026-11-25T00:03:30Z"), (30, "2026-11-25T00:28:30Z")] {
+            let rule = RecurrenceRule(unit: minutes, interval: interval, timeZoneID: "Europe/Moscow")
+            XCTAssertEqual(try rule.next(after: anchor, anchor: anchor), date(expected))
+            XCTAssertEqual(try JSONDecoder().decode(RecurrenceRule.self, from: JSONEncoder().encode(rule)), rule)
+        }
+        let rule = RecurrenceRule(unit: minutes, interval: 5)
+        XCTAssertEqual(try rule.next(after: date("2026-11-25T00:05:00Z"), anchor: anchor), date("2026-11-25T00:08:30Z"))
+        XCTAssertEqual(try rule.next(after: anchor.addingTimeInterval(-1), anchor: anchor), anchor)
+        XCTAssertThrowsError(try RecurrenceRule(unit: minutes, interval: 0).validate())
+        XCTAssertThrowsError(try RecurrenceRule(unit: minutes, interval: 1441).validate())
+        XCTAssertNoThrow(try RecurrenceRule(unit: minutes, interval: 1440).validate())
+        let oldJSON = Data(#"{"unit":"hours","interval":2,"weekdays":[],"timeZoneID":"Europe/Moscow"}"#.utf8)
+        XCTAssertEqual(try JSONDecoder().decode(RecurrenceRule.self, from: oldJSON), RecurrenceRule(unit: .hours, interval: 2, timeZoneID: "Europe/Moscow"))
+        let dst = date("2026-03-08T06:59:30Z")
+        XCTAssertEqual(try RecurrenceRule(unit: minutes, interval: 5, timeZoneID: "America/New_York").next(after: dst, anchor: dst).timeIntervalSince(dst), 300)
+    }
+
     func testMonthEndsLeapYearAndInvalidRules() throws {
         let monthly = RecurrenceRule(unit: .months, timeZoneID: "UTC")
         let january = date("2028-01-31T09:00:00Z")
@@ -784,15 +804,68 @@ final class RecurringStoreTests: XCTestCase {
         XCTAssertEqual(task.completedOccurrences.count, 1)
         XCTAssertEqual(registrations[task.alarmID], task.nextOccurrenceAt)
     }
+    func testMinuteRecurrenceWithAlarmOffPersistsAndFinishesWithoutSystemWrites() async throws {
+        let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            authorize: { XCTFail("Off task") }, schedule: { _, _, _, _ in XCTFail("Off task") },
+            cancel: { _ in XCTFail("No signal") }, scheduledAlarms: { [:] }))
+        let minutes = try XCTUnwrap(RecurrenceRule.Unit(rawValue: "minutes"))
+        let anchor = Date.now.addingTimeInterval(600)
+        let rule = RecurrenceRule(unit: minutes, interval: 5)
+        _ = await store.create(title: "Every 5 minutes", date: anchor, alarmEnabled: false, recurrence: rule)
+        let task = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        let token = try XCTUnwrap(task.occurrenceID)
+        _ = await store.completeCurrent(id: task.id, expectedOccurrence: token)
+        _ = await store.completeCurrent(id: task.id, expectedOccurrence: token)
+        XCTAssertEqual(task.nextOccurrenceAt, anchor.addingTimeInterval(300))
+        XCTAssertEqual(task.completedOccurrences.count, 1)
+        let saved = try XCTUnwrap(ModelContext(container).fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertEqual(saved.recurrence, rule)
+        XCTAssertFalse(saved.alarmEnabled)
+        XCTAssertTrue(store.finishSeries(task))
+        XCTAssertNotNil(task.completedAt)
+        XCTAssertNil(task.nextOccurrenceAt)
+        XCTAssertEqual(task.recurrence, rule)
+    }
+
+    func testMinuteStopRegistersOnlyOneNextSignalAndDoneCancelsSeries() async throws {
+        let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        var registrations: [UUID: Date] = [:]
+        var writes = 0
+        let alarms = AlarmService(schedule: { id, _, date, _ in registrations[id] = date; writes += 1 },
+            cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations })
+        let store = ReminderStore(context: context, alarms: alarms)
+        let minutes = try XCTUnwrap(RecurrenceRule.Unit(rawValue: "minutes"))
+        _ = await store.create(title: "Each minute", date: .now.addingTimeInterval(600), recurrence: RecurrenceRule(unit: minutes))
+        let task = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        let stop = CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(task.occurrenceID).uuidString)
+        try await stop.complete(in: context, alarms: alarms)
+        try await stop.complete(in: context, alarms: alarms)
+        XCTAssertNil(task.completedAt)
+        XCTAssertEqual(task.completedOccurrences.count, 1)
+        XCTAssertEqual(registrations.count, 1)
+        XCTAssertEqual(registrations[task.alarmID], task.nextOccurrenceAt)
+        XCTAssertEqual(writes, 2)
+        XCTAssertTrue(store.finishSeries(task))
+        try await stop.complete(in: context, alarms: alarms)
+        XCTAssertNotNil(task.completedAt)
+        XCTAssertTrue(registrations.isEmpty)
+        XCTAssertEqual(writes, 2)
+    }
+
     func testCalendarNativeRulesAndHourlyAnchorStrategy() {
         var request = CalendarRequest(id: UUID(), title: "Repeat", date: Date(timeIntervalSince1970: 1_900_000_000), calendarID: nil, eventID: nil, externalID: nil, previousDate: nil, allowCreate: true)
         request.recurrence = RecurrenceRule(unit: .weekdays, weekdays: [3, 5])
         let rule = request.nativeRecurrence
         XCTAssertNotNil(rule)
         XCTAssertTrue(request.matchesRecurrence(rule.map { [$0] }))
-        request.recurrence = RecurrenceRule(unit: .hours, interval: 3)
-        XCTAssertNil(request.nativeRecurrence)
-        XCTAssertTrue(request.matchesRecurrence(nil))
+        for unit in [RecurrenceRule.Unit.hours, .minutes] {
+            request.recurrence = RecurrenceRule(unit: unit, interval: 3)
+            XCTAssertNil(request.nativeRecurrence)
+            XCTAssertTrue(request.matchesRecurrence(nil))
+            XCTAssertTrue(request.notes.contains(CalendarRequest.marker(for: request.id)))
+        }
         XCTAssertTrue(request.notes.contains(CalendarRequest.marker(for: request.id)))
     }
     func testFailedCancellationCannotAdoptOldSameDateOccurrence() async throws {
