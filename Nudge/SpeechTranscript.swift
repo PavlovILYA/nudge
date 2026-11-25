@@ -43,3 +43,27 @@ struct SpeechTranscript: Sendable {
         CMTimeCompare(lhs.start, rhs.end) < 0 && CMTimeCompare(rhs.start, lhs.end) < 0
     }
 }
+
+/// Full user request, independent of the interpreted task title. Each new audio
+/// session can revise only its hypothesis; manual edits invalidate that session.
+struct VoiceTextBuffer: Sendable {
+    private(set) var confirmed = ""
+    private(set) var hypothesis = ""
+    private var session: UUID?
+    var text: String { [confirmed, hypothesis].filter { !$0.isEmpty }.joined(separator: " ") }
+    mutating func begin() -> UUID {
+        confirmed = text; hypothesis = ""
+        let id = UUID(); session = id; return id
+    }
+    mutating func update(_ text: String, session id: UUID) {
+        guard session == id else { return }
+        hypothesis = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    mutating func finish(session id: UUID) {
+        guard session == id else { return }
+        confirmed = text; hypothesis = ""; session = nil
+    }
+    mutating func edit(_ text: String) {
+        confirmed = text; hypothesis = ""; session = nil
+    }
+}

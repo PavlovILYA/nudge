@@ -227,47 +227,6 @@ final class SpeechCallbackTests: XCTestCase {
     }
 
     @MainActor
-    func testAuthorizationFromBackgroundResumesCallerOnMainActor() async {
-        for expected in [SFSpeechRecognizerAuthorizationStatus.authorized, .denied, .restricted, .authorized] {
-            let status = await SpeechCallbacks.authorization { reply in
-                DispatchQueue.global().async {
-                    dispatchPrecondition(condition: .notOnQueue(.main))
-                    reply(expected)
-                }
-            }
-            // This assertion reproduces the actor context in which the real crash occurred.
-            MainActor.assertIsolated()
-            XCTAssertEqual(status, expected)
-        }
-    }
-
-    @MainActor
-    func testAlreadyAuthorizedSynchronousCallbackAndRepeatedRequests() async {
-        for _ in 0..<2 {
-            let status = await SpeechCallbacks.authorization { reply in reply(.authorized) }
-            XCTAssertEqual(status, .authorized)
-        }
-    }
-
-    @MainActor
-    func testRecognitionCallbackHopsBeforeAccessingActorState() async {
-        let delivered = expectation(description: "MainActor recognition delivery")
-        let callback = SpeechCallbacks.recognition { update in
-            MainActor.assertIsolated()
-            XCTAssertNil(update.text)
-            XCTAssertFalse(update.final)
-            XCTAssertEqual(update.errorDomain, "SpeechCallbackTest")
-            XCTAssertEqual(update.errorCode, 42)
-            delivered.fulfill()
-        }
-        DispatchQueue.global().async {
-            dispatchPrecondition(condition: .notOnQueue(.main))
-            callback(nil, NSError(domain: "SpeechCallbackTest", code: 42))
-        }
-        await fulfillment(of: [delivered], timeout: 3)
-    }
-
-    @MainActor
     func testAudioTapCanDeliverFromBackgroundWithoutMainActor() async throws {
         let (stream, sink) = AsyncThrowingStream<AVAudioPCMBuffer, Error>.makeStream()
         let tap = MicrophoneCapture.tap(sink)
@@ -337,33 +296,6 @@ final class SpeechCallbackTests: XCTestCase {
         }
         XCTAssertEqual(buffer.format.commonFormat, .pcmFormatFloat32)
         XCTAssertEqual(buffer.floatChannelData![0][0], 0.25)
-    }
-
-    @MainActor
-    func testLegacyAcceptsCopiedNativeFloat32WithoutAnalyzerInput() async throws {
-        let (stream, sink) = AsyncThrowingStream<AVAudioPCMBuffer, Error>.makeStream()
-        let tap = MicrophoneCapture.tap(sink)
-        let source = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
-        let hardwareBuffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: source, frameCapacity: 1024))
-        hardwareBuffer.frameLength = 1024
-        hardwareBuffer.floatChannelData![0].initialize(repeating: 0.5, count: 1024)
-        tap(hardwareBuffer, AVAudioTime(sampleTime: 0, atRate: 48_000))
-        hardwareBuffer.floatChannelData![0].update(repeating: 0, count: 1024)
-        sink.finish()
-        // Buffer append is the legacy input API; no recognition task, permission or model is used.
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.requiresOnDeviceRecognition = true
-        var count = 0
-        for try await buffer in stream {
-            XCTAssertFalse(buffer === hardwareBuffer)
-            XCTAssertEqual(buffer.format.commonFormat, .pcmFormatFloat32)
-            XCTAssertEqual(buffer.frameLength, 1024)
-            XCTAssertEqual(buffer.floatChannelData![0][0], 0.5)
-            request.append(buffer)
-            count += 1
-        }
-        request.endAudio()
-        XCTAssertEqual(count, 1)
     }
 
     @MainActor
@@ -491,14 +423,7 @@ final class SpeechTranscriptTests: XCTestCase {
         XCTAssertEqual(speech.text, "")
     }
 
-    @MainActor
-    func testLegacyPartialsAreWholeUtteranceSnapshots() {
-        let speech = SpeechTranscriptionService()
-        speech.acceptLegacy("Напомни завтра")
-        speech.acceptLegacy("Напомни завтра забрать пакет")
-        speech.acceptLegacy("Напомни завтра забрать посылку")
-        XCTAssertEqual(speech.text, "Напомни завтра забрать посылку")
-    }
+
 }
 
 @MainActor
@@ -541,5 +466,26 @@ final class OptionalVoiceTaskTests: XCTestCase {
         XCTAssertEqual(created, id)
         _ = try await creation.confirm(draft: noDate, now: now, alarmEnabled: false) { _, _ in saves += 1; return UUID() }
         XCTAssertEqual(saves, 1)
+    }
+}
+
+final class VoiceTextBufferTests: XCTestCase {
+    func testContinuationPreservesManualEditsAndRejectsLateResults() {
+        var input = VoiceTextBuffer()
+        let first = input.begin()
+        input.update("забрать посылку", session: first)
+        input.finish(session: first)
+        input.edit("Забрать посылку завтра")
+        input.update("старый callback", session: first)
+        XCTAssertEqual(input.text, "Забрать посылку завтра")
+        let second = input.begin()
+        input.update("и позвонить", session: second)
+        input.update("и позвонить маме", session: second)
+        input.finish(session: second)
+        XCTAssertEqual(input.text, "Забрать посылку завтра и позвонить маме")
+        input.update("late", session: second)
+        XCTAssertEqual(input.text, "Забрать посылку завтра и позвонить маме")
+        input.edit("")
+        XCTAssertEqual(input.text, "")
     }
 }

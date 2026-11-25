@@ -13,11 +13,12 @@ struct VoiceCaptureView: View {
     @AppStorage(CalendarService.destinationKey) private var calendarID = ""
     @State private var speech = SpeechTranscriptionService()
     @State private var creation = VoiceCreation()
-    @State private var transcript = ""
-    @State private var editingTranscript = false
+    @State private var input = VoiceTextBuffer()
+    @State private var voiceSession: UUID?
+    @State private var confirmingClear = false
+    @State private var showingSettings = false
     @State private var proposal: ReminderDraft?
     @State private var fields = VoiceTaskFields()
-    @State private var transcriptEdited = false
     @State private var soundOverride: AlarmSound?
     @State private var calendarEnabled = false
     @State private var interpreting = false
@@ -37,11 +38,9 @@ struct VoiceCaptureView: View {
             Form {
                 if let id = creation.createdID { savedContent(id) }
                 else {
+                    requestEditor
                     if speech.isBusy { recordingContent }
-                    else {
-                        reviewContent
-                        recognitionSettings
-                    }
+                    else { reviewContent }
                     if let error = speech.errorMessage { Text(error).foregroundStyle(.orange) }
                     if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
                     if let error = store.errorMessage { Text(error).foregroundStyle(.red) }
@@ -65,15 +64,14 @@ struct VoiceCaptureView: View {
                 await interpret(source: source)
             }
             .onChange(of: speech.text) { _, value in
-                if !transcriptEdited && creation.createdID == nil { transcript = value }
+                if let voiceSession { input.update(value, session: voiceSession) }
             }
             .onChange(of: speech.isBusy) { _, busy in
                 if busy {
                     interpretationVersion += 1
                     interpreting = false
-                    editingTranscript = false
                     errorMessage = nil
-                }
+                } else { finishDictation() }
             }
             .onChange(of: transcript) { _, value in
                 if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -92,7 +90,15 @@ struct VoiceCaptureView: View {
                 let reason = raw.flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
                 if speech.phase == .recording, SpeechCallbacks.shouldInterruptRecording(for: reason) { speech.interrupt() }
             }
-            .onDisappear { speech.cancel(clearText: true); interpretationVersion += 1; transcript = ""; proposal = nil; fields = VoiceTaskFields() }
+            .sheet(isPresented: $showingSettings, onDismiss: { Task { await speech.prepare() } }) { SoundSettingsView() }
+            .confirmationDialog("Clear the full request?", isPresented: $confirmingClear, titleVisibility: .visible) {
+                Button("Clear text", role: .destructive) {
+                    speech.cancel(clearText: true); voiceSession = nil; input.edit("")
+                    fields = VoiceTaskFields(); proposal = nil
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+            .onDisappear { speech.cancel(clearText: true); voiceSession = nil; interpretationVersion += 1 }
         }
     }
 
@@ -103,8 +109,6 @@ struct VoiceCaptureView: View {
             } else {
                 ProgressView(speech.phase == .preparing ? String(localized: "Getting ready…") : String(localized: "Finishing recording…"))
             }
-            Text(speech.text.isEmpty ? String(localized: "Speak your reminder") : speech.text)
-                .frame(maxWidth: .infinity, alignment: .leading)
             if speech.phase == .recording {
                 Button { speech.stop() } label: {
                     Label("Stop recording", systemImage: "stop.circle.fill").frame(maxWidth: .infinity, minHeight: 44)
@@ -115,26 +119,9 @@ struct VoiceCaptureView: View {
     }
 
     @ViewBuilder private var reviewContent: some View {
-        if transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Section {
-                Text("Speak your reminder").foregroundStyle(.secondary)
-                Button { Task { await startRecording() } } label: {
-                    Label("Record reminder", systemImage: "mic.fill").frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(.borderedProminent).controlSize(.large).disabled(!speech.canRecord)
-                Button("Type a reminder") { editingTranscript = true }
-            }
-        }
-        if !transcript.isEmpty || editingTranscript {
-            Section {
-                DisclosureGroup("Correct text", isExpanded: $editingTranscript) {
-                    TextEditor(text: Binding(get: { transcript }, set: { transcriptEdited = true; transcript = $0 })).frame(minHeight: 100).accessibilityLabel("Transcript")
-                }
-            }
-        }
         if interpreting { ProgressView("Processing…") }
         if let proposal {
-            Section("Check the reminder") {
+            Section {
                 TextField("Task title", text: Binding(get: { fields.title }, set: { fields.editTitle($0) }), axis: .vertical).font(.headline)
                 TaskScheduleFields(date: Binding(get: { fields.date }, set: { fields.editDate($0) }), alarmEnabled: Binding(get: { fields.alarmEnabled }, set: { fields.editAlarm($0) }))
                 if proposal.warnings.contains(.unsupportedRecurrence) {
@@ -153,7 +140,6 @@ struct VoiceCaptureView: View {
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .disabled(!ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: []).canCreate(now: .now, alarmEnabled: fields.alarmEnabled) || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
-                Button("Record again") { Task { await startRecording() } }.disabled(!speech.canRecord)
 
             }
             Section {
@@ -176,18 +162,30 @@ struct VoiceCaptureView: View {
         }
     }
 
-    private var recognitionSettings: some View {
+    private var transcript: String { input.text }
+
+    private var requestEditor: some View {
         Section {
-            DisclosureGroup("Recognition settings") {
-                Text("Audio stays on this device. Raw recordings are not saved.").font(.footnote)
-                if !speech.backendName.isEmpty { Text(speech.backendName).font(.caption) }
-                if speech.canInstall {
-                    Button("Install system language resources") { Task { await speech.installResources() } }
-                    Text("Only Apple's system speech resources are downloaded. Voice and transcript are not uploaded.").font(.footnote)
-                }
-                Button("Check availability again") { Task { await speech.prepare() } }
+            TextField("Full request", text: Binding(get: { input.text }, set: { input.edit($0); voiceSession = nil }), axis: .vertical)
+                .lineLimit(3...12).disabled(speech.isBusy).accessibilityLabel("Transcript")
+            HStack {
+                Button { Task { await startRecording() } } label: { Label("Continue dictation", systemImage: "mic") }
+                    .disabled(speech.isBusy || !speech.canRecord)
+                Spacer()
+                Button { confirmingClear = true } label: { Label("Clear text", systemImage: "trash") }
+                    .disabled(speech.isBusy || input.text.isEmpty)
+            }.buttonStyle(.borderless)
+            if !speech.canRecord {
+                Button("Open recognition settings", systemImage: "gearshape") { showingSettings = true }
             }
         }
+    }
+
+    private func finishDictation() {
+        guard let voiceSession else { return }
+        input.update(speech.text, session: voiceSession)
+        input.finish(session: voiceSession)
+        self.voiceSession = nil
     }
 
     private func savedContent(_ id: UUID) -> some View {
@@ -215,11 +213,9 @@ struct VoiceCaptureView: View {
 
     private func startRecording() async {
         guard !speech.isBusy, !creation.isSaving, speech.canRecord else { return }
-        fields = VoiceTaskFields()
-        transcriptEdited = false
-        transcript = ""
-        proposal = nil
+        voiceSession = input.begin()
         await speech.start()
+        if !speech.isBusy { finishDictation() }
     }
 
     private func autoStartIfAllowed() {
@@ -274,7 +270,7 @@ struct VoiceCaptureView: View {
                 }
                 return nil
             }
-            if id != nil { speech.cancel(clearText: true); transcript = ""; proposal = nil }
+            if id != nil { speech.cancel(clearText: true); voiceSession = nil; input.edit(""); proposal = nil }
             let elapsed = start.duration(to: .now).components
             logger.info("creation_ms=\(Double(elapsed.seconds) * 1000 + Double(elapsed.attoseconds) / 1e15, privacy: .public)")
         } catch { errorMessage = String(localized: "Check the task title and choose a future date and time.") }

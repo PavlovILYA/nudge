@@ -10,40 +10,9 @@ private enum CaptureError: Error, Equatable { case audio, overflow, unavailable,
 // These factories deliberately live outside MainActor. Objective-C callbacks may
 // run on arbitrary queues; an inner Task cannot repair an isolated outer callback.
 enum SpeechCallbacks {
-    typealias AuthorizationReply = @Sendable (SFSpeechRecognizerAuthorizationStatus) -> Void
-
-    nonisolated static func authorization(
-        request: @Sendable (@escaping AuthorizationReply) -> Void = { reply in
-            SFSpeechRecognizer.requestAuthorization(reply)
-        }
-    ) async -> SFSpeechRecognizerAuthorizationStatus {
-        await withCheckedContinuation { continuation in
-            request { @Sendable status in continuation.resume(returning: status) }
-        }
-    }
-
     nonisolated static func shouldInterruptRecording(for reason: AVAudioSession.RouteChangeReason?) -> Bool {
         // Our own setCategory(.record) notification can arrive after engine.start().
         reason != .categoryChange
-    }
-
-    struct RecognitionUpdate: Sendable {
-        let text: String?
-        let final: Bool
-        let errorDomain: String?
-        let errorCode: Int?
-    }
-
-    nonisolated static func recognition(
-        deliver: @escaping @MainActor @Sendable (RecognitionUpdate) -> Void
-    ) -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void {
-        { result, error in
-            // Snapshot framework objects on their callback queue. Only values cross actors.
-            let failure = error as NSError?
-            let update = RecognitionUpdate(text: result?.bestTranscription.formattedString,
-                final: result?.isFinal == true, errorDomain: failure?.domain, errorCode: failure?.code)
-            Task { @MainActor in deliver(update) }
-        }
     }
 
     // AnalyzerInput's PCM initializer requires signed Int16. Native microphone PCM
@@ -180,31 +149,18 @@ final class SpeechTranscriptionService {
         self.microphone = microphone ?? MicrophoneCapture()
     }
     private let locale = Locale(identifier: "ru-RU")
-    private enum Backend {
-        case transcriber(Locale), dictation(Locale)
-        // Speech modules belong to one analyzer. Never reuse a module for Record again.
-        func makeModule() -> any SpeechModule {
-            switch self {
-            case .transcriber(let locale):
-                return SpeechTranscriber(locale: locale, preset: .timeIndexedProgressiveTranscription)
-            case .dictation(let locale):
-                var preset = DictationTranscriber.Preset.progressiveShortDictation
-                preset.attributeOptions.insert(.audioTimeRange)
-                return DictationTranscriber(locale: locale, preset: preset)
-            }
-        }
+    enum ResourceStatus: Equatable { case checking, available, notInstalled, installing, unavailable, failed }
+    private(set) var resourceStatus = ResourceStatus.checking
+    private var selectedLocale: Locale?
+    private func makeModule(_ locale: Locale) -> DictationTranscriber {
+        var preset = DictationTranscriber.Preset.progressiveLongDictation
+        preset.attributeOptions.insert(.audioTimeRange)
+        return DictationTranscriber(locale: locale, preset: preset)
     }
-    private var backend: Backend?
-    private var downloadLocale: Locale?
-    private var downloadableModule: (any SpeechModule)?
-    private var legacy: SFSpeechRecognizer?
     private var analyzer: SpeechAnalyzer?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private var request: SFSpeechAudioBufferRecognitionRequest?
     private var resultTask: Task<Void, Never>?
     private var inputTask: Task<Void, Never>?
     private var analysisTask: Task<Void, Never>?
-    private var deadlineTask: Task<Void, Never>?
     private var generation = 0
     private var transcript = SpeechTranscript()
     private var startedAt: ContinuousClock.Instant?
@@ -212,71 +168,48 @@ final class SpeechTranscriptionService {
     private let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "VoiceTiming")
 
     var isBusy: Bool { phase == .preparing || phase == .recording || phase == .finalizing }
-    var permissionsGranted: Bool {
-        canRecord && AVAudioApplication.shared.recordPermission == .granted
-            && (backend != nil || SFSpeechRecognizer.authorizationStatus() == .authorized)
-    }
+    var permissionsGranted: Bool { canRecord && AVAudioApplication.shared.recordPermission == .granted }
 
     func prepare() async {
-        guard !isBusy else { return }
-        phase = .preparing
-        logger.info("speech_prepare_started")
+        guard !isBusy, resourceStatus != .installing else { return }
+        resourceStatus = .checking
+        logger.info("speech_prepare_started backend=DictationTranscriber")
         let token = generation
-        var selected: Backend?
-        var download: (any SpeechModule)?
-        var downloadLocale: Locale?
-        var name = ""
-        if SpeechTranscriber.isAvailable, let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) {
-            guard token == generation, !Task.isCancelled else { return }
-            let candidate = SpeechTranscriber(locale: supported, preset: .progressiveTranscription)
-            let status = await AssetInventory.status(forModules: [candidate])
-            guard token == generation, !Task.isCancelled else { return }
-            if status == .installed { selected = .transcriber(supported); name = "SpeechTranscriber" }
-            else if status == .supported || status == .downloading { download = candidate; downloadLocale = supported }
+        guard let locale = await DictationTranscriber.supportedLocale(equivalentTo: locale) else {
+            guard token == generation else { return }
+            selectedLocale = nil; canRecord = false; canInstall = false; resourceStatus = .unavailable
+            errorMessage = String(localized: "Russian dictation is unavailable. You can enter the text manually.")
+            return
         }
-        if selected == nil, let supported = await DictationTranscriber.supportedLocale(equivalentTo: locale) {
-            guard token == generation, !Task.isCancelled else { return }
-            let candidate = DictationTranscriber(locale: supported, preset: .progressiveShortDictation)
-            let status = await AssetInventory.status(forModules: [candidate])
-            guard token == generation, !Task.isCancelled else { return }
-            if status == .installed { selected = .dictation(supported); name = "DictationTranscriber" }
-            else if download == nil && (status == .supported || status == .downloading) { download = candidate; downloadLocale = supported }
-        }
+        let status = await AssetInventory.status(forModules: [makeModule(locale)])
         guard token == generation, !Task.isCancelled else { return }
-        backend = selected
-        downloadableModule = download
-        self.downloadLocale = downloadLocale
-        legacy = nil
-        if selected == nil, let recognizer = SFSpeechRecognizer(locale: locale), recognizer.supportsOnDeviceRecognition {
-            legacy = recognizer
-            name = "SFSpeechRecognizer"
-        }
-        backendName = name
-        logger.info("speech_backend_selected backend=\(name, privacy: .public)")
-        canRecord = selected != nil || legacy != nil
-        canInstall = download != nil
-        phase = .idle
-        errorMessage = canRecord ? nil : String(localized: "Offline Russian recognition is unavailable. Install system language resources if offered, or enter the text manually.")
+        selectedLocale = locale
+        backendName = "DictationTranscriber"
+        canRecord = status == .installed
+        canInstall = status == .supported || status == .downloading
+        resourceStatus = canRecord ? .available : (canInstall ? .notInstalled : .unavailable)
+        errorMessage = canRecord ? nil : String(localized: "Install Apple dictation resources in Settings, or enter text manually.")
     }
 
     func installResources() async {
-        guard !isBusy, let candidate = downloadableModule else { return }
-        phase = .preparing
+        guard !isBusy, canInstall, resourceStatus != .installing, let locale = selectedLocale else { return }
+        resourceStatus = .installing
         let token = generation
         do {
-            if let localized = downloadLocale {
-                _ = try await AssetInventory.reserve(locale: localized) // false means already reserved, not failure.
+            let module = makeModule(locale)
+            if await AssetInventory.status(forModules: [module]) != .installed {
+                _ = try await AssetInventory.reserve(locale: locale)
                 guard token == generation, !Task.isCancelled else { return }
+                if let installation = try await AssetInventory.assetInstallationRequest(supporting: [module]) {
+                    try await installation.downloadAndInstall()
+                }
             }
-            let installation = try await AssetInventory.assetInstallationRequest(supporting: [candidate])
             guard token == generation, !Task.isCancelled else { return }
-            if let installation { try await installation.downloadAndInstall() }
-            guard token == generation, !Task.isCancelled else { return }
-            phase = .idle
+            resourceStatus = .checking
             await prepare()
         } catch {
             guard token == generation else { return }
-            phase = .idle
+            resourceStatus = .failed
             errorMessage = String(localized: "Could not install system speech resources. Check connectivity and free storage, then retry. No speech was uploaded.")
         }
     }
@@ -292,17 +225,12 @@ final class SpeechTranscriptionService {
             guard token == generation, !Task.isCancelled else { return }
             guard permitted else { throw CaptureError.permission }
             logger.info("microphone_permission_granted")
-            if backend == nil {
-                let status = await SpeechCallbacks.authorization()
-                guard token == generation, !Task.isCancelled else { return }
-                guard status == .authorized else { throw CaptureError.permission }
-                logger.info("speech_permission_granted")
-            }
             guard token == generation, !Task.isCancelled else { return }
             guard UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
             let naturalFormat = try microphone.configure()
             logger.info("audio_session_configured backend=\(self.backendName, privacy: .public)")
-            if let module = backend?.makeModule() {
+            if let locale = selectedLocale {
+                let module = makeModule(locale)
                 let status = await AssetInventory.status(forModules: [module])
                 guard token == generation, !Task.isCancelled else { return }
                 guard status == .installed else { throw CaptureError.unavailable }
@@ -314,25 +242,17 @@ final class SpeechTranscriptionService {
                 guard token == generation, !Task.isCancelled else { return }
                 guard UIApplication.shared.applicationState == .active else { throw CaptureError.inactive }
                 try startAnalyzer(analyzer, module: module, format: format, naturalFormat: naturalFormat, token: token)
-            } else {
-                guard let legacy, legacy.supportsOnDeviceRecognition, legacy.isAvailable else { throw CaptureError.unavailable }
-                try startLegacy(legacy, format: naturalFormat, token: token)
-            }
+            } else { throw CaptureError.unavailable }
             phase = .recording
             startedAt = .now
             logger.info("audio_engine_started backend=\(self.backendName, privacy: .public)")
-            deadlineTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(30))
-                guard !Task.isCancelled, self?.generation == token else { return }
-                self?.stop()
-            }
         } catch {
             guard token == generation else { return }
             fail(error)
         }
     }
 
-    private func startAnalyzer(_ analyzer: SpeechAnalyzer, module: any SpeechModule, format: AVAudioFormat, naturalFormat: AVAudioFormat, token: Int) throws {
+    private func startAnalyzer(_ analyzer: SpeechAnalyzer, module: DictationTranscriber, format: AVAudioFormat, naturalFormat: AVAudioFormat, token: Int) throws {
         let input = try microphone.start(format: naturalFormat)
         let (converted, sink) = AsyncThrowingStream<AnalyzerInput, Error>.makeStream(bufferingPolicy: .bufferingNewest(64))
         guard let converter = AVAudioConverter(from: naturalFormat, to: format) else { throw CaptureError.audio }
@@ -352,24 +272,13 @@ final class SpeechTranscriptionService {
                 sink.finish()
             } catch { sink.finish(throwing: error) }
         }
-        if let transcriber = module as? SpeechTranscriber {
-            resultTask = Task { [weak self] in
-                do {
-                    for try await result in transcriber.results {
-                        guard self?.generation == token, !Task.isCancelled else { return }
-                        self?.accept(result.text, range: result.range, finalizedThrough: result.resultsFinalizationTime)
-                    }
-                } catch { if self?.generation == token { self?.fail(error) } }
-            }
-        } else if let transcriber = module as? DictationTranscriber {
-            resultTask = Task { [weak self] in
-                do {
-                    for try await result in transcriber.results {
-                        guard self?.generation == token, !Task.isCancelled else { return }
-                        self?.accept(result.text, range: result.range, finalizedThrough: result.resultsFinalizationTime)
-                    }
-                } catch { if self?.generation == token { self?.fail(error) } }
-            }
+        resultTask = Task { [weak self] in
+            do {
+                for try await result in module.results {
+                    guard self?.generation == token, !Task.isCancelled else { return }
+                    self?.accept(result.text, range: result.range, finalizedThrough: result.resultsFinalizationTime)
+                }
+            } catch { if self?.generation == token { self?.fail(error) } }
         }
         let results = resultTask
         analysisTask = Task { [weak self] in
@@ -383,52 +292,18 @@ final class SpeechTranscriptionService {
         }
     }
 
-    private func startLegacy(_ recognizer: SFSpeechRecognizer, format: AVAudioFormat, token: Int) throws {
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.requiresOnDeviceRecognition = true
-        request.shouldReportPartialResults = true
-        self.request = request
-        recognitionTask = recognizer.recognitionTask(with: request, resultHandler: SpeechCallbacks.recognition { [weak self] update in
-            guard let self, self.generation == token else { return }
-            if let text = update.text { self.acceptLegacy(text) }
-            if update.final { self.finish() }
-            else if let domain = update.errorDomain {
-                self.fail(NSError(domain: domain, code: update.errorCode ?? 0))
-            }
-        })
-        let input = try microphone.start(format: format)
-        inputTask = Task { [weak self] in
-            do {
-                for try await buffer in input {
-                    guard self?.generation == token, !Task.isCancelled else { return }
-                    request.append(buffer)
-                }
-                guard self?.generation == token, !Task.isCancelled else { return }
-                request.endAudio() // All queued buffers have been appended before EOF.
-            } catch { if self?.generation == token { self?.fail(error) } }
-        }
-    }
-
     func stop() {
         guard phase == .recording else { return }
         phase = .finalizing
         logger.info("speech_stopped backend=\(self.backendName, privacy: .public)")
         microphone.stop()
-        deadlineTask?.cancel()
-        let token = generation
-        deadlineTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(8))
-            guard !Task.isCancelled, self?.generation == token, self?.phase == .finalizing else { return }
-            self?.fail(CaptureError.unavailable)
-        }
     }
     func cancel(clearText: Bool = false) {
         generation += 1
         if isBusy { logger.info("speech_stopped backend=\(self.backendName, privacy: .public)") }
         microphone.stop()
-        inputTask?.cancel(); resultTask?.cancel(); analysisTask?.cancel(); deadlineTask?.cancel()
-        inputTask = nil; resultTask = nil; analysisTask = nil; deadlineTask = nil
-        recognitionTask?.cancel(); recognitionTask = nil; request = nil
+        inputTask?.cancel(); resultTask?.cancel(); analysisTask?.cancel()
+        inputTask = nil; resultTask = nil; analysisTask = nil
         if let analyzer { Task { await analyzer.cancelAndFinishNow() } }
         analyzer = nil
         phase = .idle
@@ -460,11 +335,6 @@ final class SpeechTranscriptionService {
         logFirstText()
     }
 
-    // SFSpeechRecognizer delivers a whole-utterance snapshot, not timed deltas.
-    func acceptLegacy(_ snapshot: String) {
-        text = snapshot
-        logFirstText()
-    }
     private func logFirstText() {
         guard !text.isEmpty, !firstTextLogged, let startedAt else { return }
         firstTextLogged = true
@@ -472,7 +342,6 @@ final class SpeechTranscriptionService {
     }
     private func finish() {
         microphone.stop()
-        deadlineTask?.cancel()
         if let startedAt { logger.info("speech_finished elapsed_ms=\(Self.milliseconds(since: startedAt), privacy: .public)") }
         // Reject any callback arriving after a final result, while preserving its text.
         cancel()
@@ -483,7 +352,7 @@ final class SpeechTranscriptionService {
         logger.error("speech_failed backend=\(self.backendName, privacy: .public) domain=\(failure.domain, privacy: .public) code=\(failure.code, privacy: .public)")
         cancel()
         errorMessage = error as? CaptureError == .permission
-            ? String(localized: "Microphone or speech permission is denied. Allow access in iOS Settings, or enter text manually.")
+            ? String(localized: "Microphone access is denied. Allow it in Settings, or type the request.")
             : String(localized: "Offline recognition could not finish. Check the text, retry recording, or type manually. No cloud recognition is used.")
     }
     private nonisolated static func milliseconds(since start: ContinuousClock.Instant) -> Double {
