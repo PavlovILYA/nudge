@@ -5,23 +5,25 @@ import SwiftUI
 /// The only system boundary. Tests supply closures and never request permissions.
 @MainActor
 struct AlarmService {
-    static let actionsVersion = 2
+    static let actionsVersion = 3
 
     var authorize: () async throws -> Void = {}
     var schedule: (UUID, String, Date, AlarmSound) async throws -> Void
     var cancel: (UUID) throws -> Void
     var scheduledAlarms: () throws -> [UUID: Date]
-    var scheduleOccurrence: ((UUID, String, Date, AlarmSound, UUID?) async throws -> Void)? = nil
+    var scheduleOccurrence: ((UUID, String, Date, AlarmSound, UUID?, UUID) async throws -> Void)? = nil
+    var stop: ((UUID) throws -> Void)? = nil
     var alertingAlarms: () throws -> Set<UUID> = { [] }
 
     static let live = AlarmService(
         authorize: {
             let manager = AlarmManager.shared
+            if manager.authorizationState == .authorized { return }
             let authorization = try await manager.requestAuthorization()
             guard authorization == .authorized else { throw AlarmError.authorizationDenied }
         },
         schedule: { id, title, date, sound in
-            try await scheduleSystem(id: id, title: title, date: date, sound: sound, occurrenceID: nil)
+            try await scheduleSystem(id: id, title: title, date: date, sound: sound, occurrenceID: nil, reminderID: id)
         },
         cancel: { id in
             let manager = AlarmManager.shared
@@ -41,20 +43,26 @@ struct AlarmService {
             }
             return dates
         },
-        scheduleOccurrence: { id, title, date, sound, occurrenceID in
-            try await scheduleSystem(id: id, title: title, date: date, sound: sound, occurrenceID: occurrenceID)
+        scheduleOccurrence: { id, title, date, sound, occurrenceID, reminderID in
+            try await scheduleSystem(id: id, title: title, date: date, sound: sound, occurrenceID: occurrenceID, reminderID: reminderID)
+        },
+        stop: { id in
+            do { try AlarmManager.shared.stop(id: id) }
+            catch {
+                guard let current = try? AlarmManager.shared.alarms, !current.contains(where: { $0.id == id }) else { throw error }
+            }
         },
         alertingAlarms: {
             Set(try AlarmManager.shared.alarms.filter { $0.state == .alerting }.map(\.id))
         }
     )
 
-    func register(_ id: UUID, title: String, date: Date, sound: AlarmSound, occurrenceID: UUID?) async throws {
-        if let scheduleOccurrence { try await scheduleOccurrence(id, title, date, sound, occurrenceID) }
+    func register(_ id: UUID, title: String, date: Date, sound: AlarmSound, occurrenceID: UUID?, reminderID: UUID) async throws {
+        if let scheduleOccurrence { try await scheduleOccurrence(id, title, date, sound, occurrenceID, reminderID) }
         else { try await schedule(id, title, date, sound) }
     }
 
-    private static func scheduleSystem(id: UUID, title: String, date: Date, sound: AlarmSound, occurrenceID: UUID?) async throws {
+    private static func scheduleSystem(id: UUID, title: String, date: Date, sound: AlarmSound, occurrenceID: UUID?, reminderID: UUID) async throws {
         let manager = AlarmManager.shared
         try Reminder.validateSnoozeDate(date)
         if sound.filename != nil, sound.resourceURL() == nil { throw AlarmError.missingSound }
@@ -76,10 +84,10 @@ struct AlarmService {
         )
         let configuration = AlarmManager.AlarmConfiguration(
             schedule: .fixed(date), attributes: attributes,
-            stopIntent: CompleteTaskIntent(reminderID: id.uuidString, occurrenceID: occurrenceID?.uuidString ?? ""),
-            secondaryIntent: ChooseTimeIntent(reminderID: id.uuidString), sound: sound.alertSound)
+            stopIntent: CompleteTaskIntent(reminderID: reminderID.uuidString, occurrenceID: occurrenceID?.uuidString ?? "", alarmID: id.uuidString),
+            secondaryIntent: ChooseTimeIntent(reminderID: reminderID.uuidString, alarmID: id.uuidString), sound: sound.alertSound)
         let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "AlarmScheduling")
-        logger.info("Scheduling id=\(id.uuidString, privacy: .public) mode=\(sound.rawValue, privacy: .public) sound=\(sound.diagnostic, privacy: .public) date=\(date.ISO8601Format(), privacy: .public)")
+        logger.info("Scheduling task=\(reminderID.uuidString, privacy: .public) id=\(id.uuidString, privacy: .public) mode=\(sound.rawValue, privacy: .public) sound=\(sound.diagnostic, privacy: .public) date=\(date.ISO8601Format(), privacy: .public)")
         _ = try await manager.schedule(id: id, configuration: configuration)
         logger.info("Registration accepted id=\(id.uuidString, privacy: .public); delivery/audio/haptics unverified")
     }

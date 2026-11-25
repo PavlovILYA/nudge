@@ -230,13 +230,24 @@ final class ReminderStore {
         }
     }
 
-    private func replaceAlarm(_ reminder: Reminder, date: Date, cancelExisting: Bool = true) async throws {
+    private func replaceAlarm(_ reminder: Reminder, date: Date, cancelExisting: Bool = true, renewRegistration: Bool = false, stopCurrent: Bool = false, expectedRegistration: UUID? = nil) async throws {
         let id = reminder.id
         let token = reminder.occurrenceID
-        try await AlarmWriteQueue.perform(id: reminder.alarmID) {
+        try await AlarmWriteQueue.perform(id: reminder.id) {
             let current = try self.incompleteReminder(id: id)
             guard current.occurrenceID == token else { throw SnoozeError.changed }
-            try await self.writeAlarm(current, date: date, cancelExisting: cancelExisting, token: token)
+            if let expectedRegistration, current.alarmID != expectedRegistration { throw SnoozeError.changed }
+            if renewRegistration {
+                let oldID = current.alarmID
+                if stopCurrent, let stop = self.alarms.stop { try stop(oldID) }
+                else { try self.alarms.cancel(oldID) }
+                self.registeredDates.removeValue(forKey: oldID)
+                self.alertingIDs.remove(oldID)
+                current.renewAlarmID()
+                current.alarmWriteStarted = false
+                try self.saveContext(self.context)
+            }
+            try await self.writeAlarm(current, date: date, cancelExisting: cancelExisting && !renewRegistration, token: token)
         }
     }
 
@@ -255,7 +266,7 @@ final class ReminderStore {
         // Stop/disable/delete can interleave while schedule() suspends. A late
         // system registration must not resurrect the task's alarm.
         do {
-            try await alarms.register(alarmID, title: reminder.title, date: date, sound: reminder.sound, occurrenceID: token)
+            try await alarms.register(alarmID, title: reminder.title, date: date, sound: reminder.sound, occurrenceID: token, reminderID: reminder.id)
             let current = try incompleteReminder(id: id)
             guard current.occurrenceID == token else { throw SnoozeError.changed }
             guard current.alarmDisabled != true else { throw SnoozeError.disabled }
@@ -316,6 +327,50 @@ final class ReminderStore {
             _ = saveChanges()
             log(error)
             errorMessage = reminder.alarmError
+            return false
+        }
+    }
+
+    /// Persist a five-minute safety Snooze before stopping a one-shot alert.
+    /// It is scheduled before navigation, so dismissal/process death needs no callback.
+    func prepareActions(id: UUID, expectedAlarmID: UUID? = nil) async -> Bool {
+        guard !isBusy else { return false }
+        isBusy = true
+        defer { isBusy = false }
+        var item: Reminder?
+        var pendingDate: Date?
+        var occurrence: UUID?
+        do {
+            let current = try incompleteReminder(id: id)
+            guard current.alarmEnabled else { return false }
+            if let expectedAlarmID, current.alarmID != expectedAlarmID { return true }
+            let dates = try alarms.scheduledAlarms()
+            let alerting = try alarms.alertingAlarms()
+            if let date = dates[current.alarmID], date > .now, !alerting.contains(current.alarmID) { return true }
+            let date = Date.now.addingTimeInterval(300)
+            let registration = current.alarmID
+            occurrence = current.occurrenceID
+            pendingDate = date
+            current.pendingSnoozeAt = date
+            current.alarmNeedsUpdate = true
+            current.alarmWriteStarted = false
+            current.alarmState = .unconfirmed
+            guard saveChanges() else { return false }
+            item = current
+            try await replaceAlarm(current, date: date, renewRegistration: true, stopCurrent: true, expectedRegistration: registration)
+            current.nextAlarmAt = date
+            return saveChanges()
+        } catch {
+            log(error)
+            if let item, item.completedAt == nil, item.alarmEnabled {
+                guard item.pendingSnoozeAt == pendingDate, item.occurrenceID == occurrence else { return true }
+                item.alarmState = .failed
+                item.alarmError = String(localized: "Actions could not secure the next alarm. Choose a time to retry, or turn off the alarm.")
+                _ = saveChanges()
+                errorMessage = item.alarmError
+                return true // Open the task so the saved pending operation can be repaired.
+            }
+            errorMessage = friendlyMessage(error)
             return false
         }
     }
@@ -497,7 +552,7 @@ final class ReminderStore {
             if item.alarmEnabled {
                 try await alarms.authorize()
                 guard item.completedAt == nil, item.alarmEnabled, item.occurrenceID == advancedOccurrence else { return true }
-                try await replaceAlarm(item, date: next)
+                try await replaceAlarm(item, date: next, renewRegistration: true)
             } else if cancellationPending || hadSignal { try cancelRegistration(item) }
             guard saveChanges() else { return true }
             _ = syncCalendar(item) // Original series anchor, not nextOccurrenceAt.
@@ -526,7 +581,7 @@ final class ReminderStore {
         guard !isBusy else { return }
         do {
             let items = try context.fetch(FetchDescriptor<Reminder>())
-            for item in items where item.recurrence != nil && item.alarmEnabled && item.alarmNeedsUpdate == true {
+            for item in items where (item.recurrence != nil || item.pendingSnoozeAt != nil) && item.alarmEnabled && item.alarmNeedsUpdate == true {
                 if let date = item.pendingSnoozeAt ?? item.occurrenceDate, date > .now {
                     _ = await snooze(id: item.id, until: date)
                 }
@@ -647,7 +702,7 @@ final class ReminderStore {
     }
 }
 
-/// Serializes writes for one system ID through their post-await state checks.
+/// Serializes writes for one task through ID rotation and post-await checks.
 /// This is not a background scheduler; pending dates/tokens remain durable in SwiftData.
 @MainActor
 private enum AlarmWriteQueue {

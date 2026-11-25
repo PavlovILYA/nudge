@@ -379,14 +379,20 @@ final class ReminderTests: XCTestCase {
 
     func testIntentPassesCorrectTaskIDWithoutChangingTasks() async throws {
         defer { SnoozeRequest.shared.reminderID = nil }
+        let context = try memoryContext()
         let id = UUID()
-        _ = try await ChooseTimeIntent(reminderID: id.uuidString).perform()
-        XCTAssertEqual(SnoozeRequest.shared.reminderID, id)
         let another = UUID()
-        _ = try await ChooseTimeIntent(reminderID: another.uuidString).perform()
+        let date = Date.now.addingTimeInterval(600)
+        context.insert(try Reminder(id: id, title: "One", scheduledAt: date))
+        context.insert(try Reminder(id: another, title: "Two", scheduledAt: date))
+        try context.save()
+        let alarms = AlarmService(schedule: { _, _, _, _ in XCTFail("Already future") }, cancel: { _ in XCTFail("Already future") }, scheduledAlarms: { [id: date, another: date] })
+        try await ChooseTimeIntent(reminderID: id.uuidString).open(in: context, alarms: alarms)
+        XCTAssertEqual(SnoozeRequest.shared.reminderID, id)
+        try await ChooseTimeIntent(reminderID: another.uuidString).open(in: context, alarms: alarms)
         XCTAssertEqual(SnoozeRequest.shared.reminderID, another)
         do {
-            _ = try await ChooseTimeIntent(reminderID: "invalid").perform()
+            try await ChooseTimeIntent(reminderID: "invalid").open(in: context, alarms: alarms)
             XCTFail("Invalid ID must fail")
         } catch {
             XCTAssertEqual(SnoozeRequest.shared.reminderID, another)

@@ -434,7 +434,7 @@ final class TaskFirstTests: XCTestCase {
         let context = try memory()
         let task = try Reminder(title: "Task", scheduledAt: .now.addingTimeInterval(600))
         context.insert(task); try context.save()
-        _ = try await ChooseTimeIntent(reminderID: task.id.uuidString).perform()
+        try await ChooseTimeIntent(reminderID: task.id.uuidString).open(in: context, alarms: AlarmService(schedule: { _, _, _, _ in XCTFail("Future") }, cancel: { _ in XCTFail("Future") }, scheduledAlarms: { [task.alarmID: task.scheduledAt!] }))
         XCTAssertEqual(SnoozeRequest.shared.reminderID, task.id)
         XCTAssertNil(task.completedAt)
         SnoozeRequest.shared.reminderID = nil
@@ -639,7 +639,7 @@ final class RecurrenceDateTests: XCTestCase {
     func testMinuteIntervalsStayOnAnchorAcrossMidnightAndRoundTripOldRules() throws {
         let anchor = date("2026-11-24T23:58:30Z")
         let minutes = try XCTUnwrap(RecurrenceRule.Unit(rawValue: "minutes"))
-        for (interval, expected) in [(1, "2026-11-24T23:59:30Z"), (5, "2026-11-25T00:03:30Z"), (30, "2026-11-25T00:28:30Z")] {
+        for (interval, expected) in [(1, "2026-11-24T23:59:30Z"), (2, "2026-11-25T00:00:30Z"), (5, "2026-11-25T00:03:30Z"), (30, "2026-11-25T00:28:30Z")] {
             let rule = RecurrenceRule(unit: minutes, interval: interval, timeZoneID: "Europe/Moscow")
             XCTAssertEqual(try rule.next(after: anchor, anchor: anchor), date(expected))
             XCTAssertEqual(try JSONDecoder().decode(RecurrenceRule.self, from: JSONEncoder().encode(rule)), rule)
@@ -830,28 +830,121 @@ final class RecurringStoreTests: XCTestCase {
     }
 
     func testMinuteStopRegistersOnlyOneNextSignalAndDoneCancelsSeries() async throws {
-        let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        for interval in [1, 2, 5] {
+            let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+            var registrations: [UUID: Date] = [:]
+            var writes = 0
+            let alarms = AlarmService(schedule: { id, _, date, _ in registrations[id] = date; writes += 1 },
+                cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations })
+            let store = ReminderStore(context: context, alarms: alarms)
+            let minutes = try XCTUnwrap(RecurrenceRule.Unit(rawValue: "minutes"))
+            _ = await store.create(title: "Each minute", date: .now.addingTimeInterval(600), recurrence: RecurrenceRule(unit: minutes, interval: interval))
+            let task = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+            let oldAlarmID = task.alarmID
+            let stop = CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(task.occurrenceID).uuidString, alarmID: oldAlarmID.uuidString)
+            try await stop.complete(in: context, alarms: alarms)
+            registrations.removeValue(forKey: oldAlarmID) // System Stop cleanup may finish after the intent.
+            XCTAssertNotEqual(task.alarmID, oldAlarmID)
+            try await stop.complete(in: context, alarms: alarms)
+            XCTAssertNil(task.completedAt)
+            XCTAssertEqual(task.completedOccurrences.count, 1)
+            XCTAssertEqual(registrations.count, 1)
+            XCTAssertEqual(registrations[task.alarmID], task.nextOccurrenceAt)
+            XCTAssertEqual(writes, 2)
+            XCTAssertTrue(store.finishSeries(task))
+            try await stop.complete(in: context, alarms: alarms)
+            XCTAssertNotNil(task.completedAt)
+            XCTAssertTrue(registrations.isEmpty)
+            XCTAssertEqual(writes, 2)
+        }
+    }
+
+    func testActionsStopsAlertAndDurablyKeepsFallbackWithoutCompleting() async throws {
+        defer { SnoozeRequest.shared.reminderID = nil }
+        let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
         var registrations: [UUID: Date] = [:]
-        var writes = 0
-        let alarms = AlarmService(schedule: { id, _, date, _ in registrations[id] = date; writes += 1 },
-            cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations })
+        var alerting: Set<UUID> = []
+        var stops = 0
+        let alarms = AlarmService(schedule: { id, _, date, _ in registrations[id] = date },
+            cancel: { registrations.removeValue(forKey: $0); alerting.remove($0) }, scheduledAlarms: { registrations },
+            stop: { id in stops += 1; alerting.remove(id); registrations.removeValue(forKey: id) }, alertingAlarms: { alerting })
         let store = ReminderStore(context: context, alarms: alarms)
-        let minutes = try XCTUnwrap(RecurrenceRule.Unit(rawValue: "minutes"))
-        _ = await store.create(title: "Each minute", date: .now.addingTimeInterval(600), recurrence: RecurrenceRule(unit: minutes))
+        let original = Date.now.addingTimeInterval(600)
+        let rule = RecurrenceRule(unit: .minutes, interval: 2)
+        _ = await store.create(title: "Actions", date: original, recurrence: rule)
         let task = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
-        let stop = CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(task.occurrenceID).uuidString)
-        try await stop.complete(in: context, alarms: alarms)
-        try await stop.complete(in: context, alarms: alarms)
-        XCTAssertNil(task.completedAt)
-        XCTAssertEqual(task.completedOccurrences.count, 1)
+        let oldID = task.alarmID
+        let token = task.occurrenceID
+        let oldStop = CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(token).uuidString, alarmID: oldID.uuidString)
+        alerting.insert(oldID)
+        let intent = ChooseTimeIntent(reminderID: task.id.uuidString, alarmID: oldID.uuidString)
+        try await intent.open(in: context, alarms: alarms)
+        try await intent.open(in: context, alarms: alarms)
+        XCTAssertEqual(stops, 1)
+        XCTAssertTrue(alerting.isEmpty)
         XCTAssertEqual(registrations.count, 1)
-        XCTAssertEqual(registrations[task.alarmID], task.nextOccurrenceAt)
-        XCTAssertEqual(writes, 2)
-        XCTAssertTrue(store.finishSeries(task))
-        try await stop.complete(in: context, alarms: alarms)
-        XCTAssertNotNil(task.completedAt)
+        XCTAssertNotEqual(task.alarmID, oldID)
+        XCTAssertEqual(task.occurrenceID, token)
+        XCTAssertEqual(task.recurrence, rule)
+        XCTAssertEqual(task.scheduledAt, original)
+        XCTAssertNil(task.completedAt)
+        let reopened = try XCTUnwrap(ModelContext(container).fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertEqual(reopened.nextAlarmAt, registrations[task.alarmID])
+        XCTAssertGreaterThan(try XCTUnwrap(reopened.nextAlarmAt).timeIntervalSinceNow, 290)
+        try await oldStop.complete(in: context, alarms: alarms)
+        try await CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(token).uuidString).complete(in: context, alarms: alarms)
+        try await ChooseTimeIntent(reminderID: task.id.uuidString).open(in: context, alarms: alarms)
+        XCTAssertEqual(stops, 1)
+        XCTAssertNil(task.completedAt)
+        let target = Date.now.addingTimeInterval(35 * 60)
+        _ = await store.snooze(id: task.id, until: target)
+        XCTAssertEqual(registrations.count, 1)
+        XCTAssertEqual(registrations[task.alarmID], target)
+        XCTAssertEqual(task.recurrence, rule)
+        XCTAssertTrue(store.disableAlarm(task))
         XCTAssertTrue(registrations.isEmpty)
-        XCTAssertEqual(writes, 2)
+        XCTAssertNil(task.completedAt)
+    }
+
+    func testFailedActionsStopKeepsCurrentRegistrationAndPendingIntent() async throws {
+        let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        let task = try Reminder(title: "Stop failure", scheduledAt: .now.addingTimeInterval(600))
+        context.insert(task); try context.save()
+        let oldID = task.alarmID
+        let date = try XCTUnwrap(task.scheduledAt)
+        let store = ReminderStore(context: context, alarms: AlarmService(schedule: { _, _, _, _ in XCTFail("Stop failed") },
+            cancel: { _ in }, scheduledAlarms: { [oldID: date] }, stop: { _ in throw CancellationError() }, alertingAlarms: { [oldID] }))
+        let opened = await store.prepareActions(id: task.id, expectedAlarmID: oldID)
+        XCTAssertTrue(opened)
+        XCTAssertEqual(task.alarmID, oldID)
+        XCTAssertNil(task.completedAt)
+        XCTAssertNotNil(task.pendingSnoozeAt)
+        XCTAssertEqual(task.alarmNeedsUpdate, true)
+        XCTAssertNotNil(task.alarmError)
+    }
+
+    func testActionsFailureKeepsPendingStateForReopening() async throws {
+        let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        let task = try Reminder(title: "Failure", scheduledAt: .now.addingTimeInterval(600))
+        context.insert(task); try context.save()
+        var fail = true
+        var registrations: [UUID: Date] = [:]
+        let alarms = AlarmService(schedule: { id, _, date, _ in if fail { throw CancellationError() }; registrations[id] = date }, cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations }, stop: { _ in })
+        let store = ReminderStore(context: context, alarms: alarms)
+        let opened = await store.prepareActions(id: task.id, expectedAlarmID: task.alarmID)
+        XCTAssertTrue(opened)
+        XCTAssertNil(task.completedAt)
+        XCTAssertNotNil(task.pendingSnoozeAt)
+        XCTAssertEqual(task.alarmNeedsUpdate, true)
+        XCTAssertNotNil(task.alarmError)
+        fail = false
+        let recovered = ReminderStore(context: ModelContext(context.container), alarms: alarms)
+        await recovered.recoverRecurringAlarms()
+        let saved = try recovered.reminder(id: task.id)
+        XCTAssertEqual(registrations.count, 1)
+        XCTAssertEqual(registrations[saved.alarmID], saved.nextAlarmAt)
+        XCTAssertNil(saved.pendingSnoozeAt)
     }
 
     func testCalendarNativeRulesAndHourlyAnchorStrategy() {
@@ -936,7 +1029,7 @@ final class RecurringStoreTests: XCTestCase {
             await action?()
         }, schedule: { _, _, _, _ in XCTFail("Use token-aware registration") },
             cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations },
-            scheduleOccurrence: { id, _, date, _, token in registrations[id] = date; registeredToken = token })
+            scheduleOccurrence: { id, _, date, _, token, _ in registrations[id] = date; registeredToken = token })
         let first = ReminderStore(context: context, alarms: alarms)
         let second = ReminderStore(context: context, alarms: alarms)
         _ = await first.create(title: "Race", date: .now.addingTimeInterval(600), recurrence: RecurrenceRule(unit: .days))

@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import OSLog
 import Observation
 import SwiftData
 
@@ -12,19 +13,35 @@ struct ChooseTimeIntent: LiveActivityIntent {
 
     @Parameter(title: "Reminder ID") var reminderID: String
 
-    init() { reminderID = "" }
-    init(reminderID: String) { self.reminderID = reminderID }
+    @Parameter(title: "Alarm ID") var alarmID: String
+    init() { reminderID = ""; alarmID = "" }
+    init(reminderID: String, alarmID: String = "") { self.reminderID = reminderID; self.alarmID = alarmID }
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        guard let id = UUID(uuidString: reminderID) else { throw RequestError.invalidID }
-        SnoozeRequest.shared.reminderID = id
+        try await open(in: ReminderPersistence.container().mainContext)
         return .result()
     }
 
+    @MainActor
+    func open(in context: ModelContext, alarms: AlarmService = .live) async throws {
+        guard let id = UUID(uuidString: reminderID), alarmID.isEmpty || UUID(uuidString: alarmID) != nil else { throw RequestError.invalidID }
+        let store = ReminderStore(context: context, alarms: alarms)
+        if await store.prepareActions(id: id, expectedAlarmID: alarmID.isEmpty ? id : UUID(uuidString: alarmID)) {
+            SnoozeRequest.shared.reminderID = id
+        } else if store.errorMessage != nil {
+            throw RequestError.failed
+        }
+    }
+
     private enum RequestError: LocalizedError {
-        case invalidID
-        var errorDescription: String? { String(localized: "The reminder identifier is invalid.") }
+        case invalidID, failed
+        var errorDescription: String? {
+            switch self {
+            case .invalidID: String(localized: "The reminder identifier is invalid.")
+            case .failed: String(localized: "Actions could not be opened safely. Open Nudge to check the alarm.")
+            }
+        }
     }
 }
 
@@ -46,8 +63,11 @@ struct CompleteTaskIntent: LiveActivityIntent {
 
     @Parameter(title: "Reminder ID") var reminderID: String
     @Parameter(title: "Occurrence ID") var occurrenceID: String
-    init() { reminderID = ""; occurrenceID = "" }
-    init(reminderID: String, occurrenceID: String = "") { self.reminderID = reminderID; self.occurrenceID = occurrenceID }
+    @Parameter(title: "Alarm ID") var alarmID: String
+    init() { reminderID = ""; occurrenceID = ""; alarmID = "" }
+    init(reminderID: String, occurrenceID: String = "", alarmID: String = "") {
+        self.reminderID = reminderID; self.occurrenceID = occurrenceID; self.alarmID = alarmID
+    }
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -60,9 +80,19 @@ struct CompleteTaskIntent: LiveActivityIntent {
         guard let id = UUID(uuidString: reminderID) else { throw IntentError.invalidID }
         let store = ReminderStore(context: context, alarms: alarms)
         let descriptor = FetchDescriptor<Reminder>(predicate: #Predicate { $0.id == id })
-        guard try context.fetch(descriptor).first != nil else { return }
+        guard let item = try context.fetch(descriptor).first else { return }
+        guard alarmID.isEmpty || UUID(uuidString: alarmID) != nil else { throw IntentError.invalidID }
+        // Pre-build7 configurations used the task UUID as their system ID.
+        let expectedRegistration = alarmID.isEmpty ? id : UUID(uuidString: alarmID)
+        let logger = Logger(subsystem: "com.pavlovilya.nudge", category: "AlarmActions")
+        logger.info("stop_intent_received task=\(id.uuidString, privacy: .public) alarm=\(self.alarmID, privacy: .public)")
+        guard item.alarmID == expectedRegistration else {
+            logger.info("stop_intent_ignored_stale_registration")
+            return
+        }
         guard occurrenceID.isEmpty || UUID(uuidString: occurrenceID) != nil else { throw IntentError.invalidID }
         guard await store.completeCurrent(id: id, expectedOccurrence: UUID(uuidString: occurrenceID)) else { throw IntentError.failed }
+        logger.info("stop_intent_finished completed=\(item.completedAt != nil) pending=\(item.alarmNeedsUpdate == true) alarm=\(item.alarmID.uuidString, privacy: .public)")
     }
 
     private enum IntentError: LocalizedError {

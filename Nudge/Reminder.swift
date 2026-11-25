@@ -77,6 +77,8 @@ final class Reminder {
         }
     }
 
+    func renewAlarmID() { alarmID = UUID() }
+
     var sound: AlarmSound { AlarmSound(rawValue: soundModeID ?? "") ?? .systemDefault }
 
     var alarmEnabled: Bool { completedAt == nil && alarmDisabled != true }
