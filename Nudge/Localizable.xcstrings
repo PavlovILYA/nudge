@@ -3728,6 +3728,102 @@
           }
         }
       }
+    },
+    "Task text": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текст задачи"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task text"
+          }
+        }
+      }
+    },
+    "Minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Минуты"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minutes"
+          }
+        }
+      }
+    },
+    "Every minute": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждую минуту"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every minute"
+          }
+        }
+      }
+    },
+    "Every %lld minutes": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждые %lld мин"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every %lld minutes"
+          }
+        }
+      }
+    },
+    "Minute and hourly recurrence is managed by Nudge. Calendar shows the original event only.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторения по минутам и часам обрабатывает Nudge. В календаре показано только исходное событие."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minute and hourly recurrence is managed by Nudge. Calendar shows the original event only."
+          }
+        }
+      }
+    },
+    "System Stop completes one occurrence and schedules the next. Done in Nudge finishes the series. Missed occurrences do not trigger new alarms.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Системная кнопка «Остановить» выполняет один повтор и ставит следующий сигнал. «Готово» в Nudge завершает всю серию. Без выполнения новые сигналы не появляются."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Stop completes one occurrence and schedules the next. Done in Nudge finishes the series. Missed occurrences do not trigger new alarms."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
