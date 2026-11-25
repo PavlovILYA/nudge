@@ -157,6 +157,25 @@ final class VoiceCreationTests: XCTestCase {
         XCTAssertEqual(items.filter { $0.completedAt == date }.count, 1)
     }
 
+    func testVoiceCreationPersistsExactlyTheVisibleText() async throws {
+        let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let store = ReminderStore(context: context, alarms: AlarmService(
+            schedule: { _, _, _, _ in XCTFail("Undated task") }, cancel: { _ in XCTFail("No signal") }, scheduledAlarms: { [:] }))
+        let visible = "  Напомни забрать посылку\nи позвонить маме!  "
+        let draft = VoiceTaskFields().draft(text: visible)
+        let creation = VoiceCreation()
+        let id = try await creation.confirm(draft: draft, now: .now) { title, date in
+            guard await store.create(title: title, date: date, alarmEnabled: draft.alarmEnabled, preserveTitleWhitespace: true) else { return nil }
+            return store.lastCreatedID
+        }
+        let saved = try XCTUnwrap(ModelContext(container).fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertEqual(saved.id, id)
+        XCTAssertEqual(saved.title, visible)
+        XCTAssertNil(saved.scheduledAt)
+        XCTAssertFalse(saved.alarmEnabled)
+    }
+
     func testConcurrentConfirmationDoesNotDuplicate() async throws {
         let now = Date(timeIntervalSince1970: 1_900_000_000)
         let draft = ReminderDraft(sourceText: "Task", title: "Task", date: now.addingTimeInterval(600), warnings: [])
@@ -439,18 +458,42 @@ final class OptionalVoiceTaskTests: XCTestCase {
         let date = Date(timeIntervalSince1970: 1_900_000_000)
         var fields = VoiceTaskFields()
         fields.apply(ReminderDraft(sourceText: "first", title: "Parsed", date: date, warnings: []))
-        fields.editTitle("User title")
         fields.editDate(date.addingTimeInterval(600))
         fields.editAlarm(false)
         fields.apply(ReminderDraft(sourceText: "corrected", title: "New parser title", date: date.addingTimeInterval(1200), warnings: []))
-        XCTAssertEqual(fields.title, "User title")
         XCTAssertEqual(fields.date, date.addingTimeInterval(600))
         XCTAssertFalse(fields.alarmEnabled)
         fields = VoiceTaskFields()
         fields.apply(ReminderDraft(sourceText: "undated", title: "Undated", date: nil, warnings: [.missingDate]))
-        XCTAssertEqual(fields.title, "Undated")
         XCTAssertNil(fields.date)
         XCTAssertFalse(fields.alarmEnabled)
+    }
+
+    func testConfirmationUsesVisibleTextEvenWithStaleInterpretation() async throws {
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        var fields = VoiceTaskFields()
+        fields.apply(ReminderDraft(sourceText: "old request", title: "Hidden parsed title", date: now.addingTimeInterval(600), warnings: []))
+        let chosenDate = now.addingTimeInterval(1200)
+        let rule = RecurrenceRule(unit: .days, interval: 3)
+        fields.editDate(chosenDate)
+        fields.editAlarm(false)
+        fields.editRecurrence(rule)
+        var input = VoiceTextBuffer()
+        input.edit("  Полная исправленная фраза\nи продолжение  ")
+        // Even an already queued interpretation can only fill untouched parameters.
+        fields.apply(ReminderDraft(sourceText: "old request", title: "Another stale title", date: now.addingTimeInterval(1800), warnings: []))
+        let snapshot = fields.draft(text: input.text)
+        input.edit("Правка после нажатия Create")
+        let creation = VoiceCreation()
+        _ = try await creation.confirm(draft: snapshot, now: now) { title, date in
+            XCTAssertEqual(title, "  Полная исправленная фраза\nи продолжение  ")
+            XCTAssertEqual(date, chosenDate)
+            return UUID()
+        }
+        XCTAssertEqual(snapshot.title, snapshot.sourceText)
+        XCTAssertFalse(snapshot.alarmEnabled)
+        XCTAssertEqual(snapshot.recurrence, rule)
+        XCTAssertThrowsError(try fields.draft(text: " \n ").validated(now: now))
     }
 
     func testTypedRepeatDraftKeepsFullRequestAndManualRepeat() throws {

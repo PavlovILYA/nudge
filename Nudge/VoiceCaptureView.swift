@@ -122,7 +122,6 @@ struct VoiceCaptureView: View {
         if interpreting { ProgressView("Processing…") }
         if let proposal {
             Section {
-                TextField("Task title", text: Binding(get: { fields.title }, set: { fields.editTitle($0) }), axis: .vertical).font(.headline)
                 TaskScheduleFields(date: Binding(get: { fields.date }, set: { fields.editDate($0) }), alarmEnabled: Binding(get: { fields.alarmEnabled }, set: { fields.editAlarm($0) }))
                 RecurrencePicker(rule: Binding(get: { fields.recurrence }, set: { fields.editRecurrence($0) }), date: Binding(get: { fields.date }, set: { fields.editDate($0) }))
                 if proposal.warnings.contains(.unsupportedRecurrence) {
@@ -133,14 +132,17 @@ struct VoiceCaptureView: View {
             }
             .disabled(interpreting)
             Section {
-                Button { Task { await create() } } label: {
+                Button {
+                    let draft = fields.draft(text: transcript, warnings: proposal.warnings)
+                    Task { await create(draft) }
+                } label: {
                     HStack {
                         if creation.isSaving { ProgressView() }
                         Text("Create").font(.headline)
                     }.frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .disabled(!ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: [], alarmEnabled: fields.alarmEnabled, recurrence: fields.recurrence).canCreate(now: .now, alarmEnabled: fields.alarmEnabled) || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
+                .disabled(!fields.draft(text: transcript).canCreate(now: .now, alarmEnabled: fields.alarmEnabled) || speech.isBusy || creation.isSaving || store.isBusy)
 
             }
             Section {
@@ -167,8 +169,8 @@ struct VoiceCaptureView: View {
 
     private var requestEditor: some View {
         Section {
-            TextField("Full request", text: Binding(get: { input.text }, set: { input.edit($0); voiceSession = nil }), axis: .vertical)
-                .lineLimit(3...12).disabled(speech.isBusy).accessibilityLabel("Transcript")
+            TextField("Task text", text: Binding(get: { input.text }, set: { input.edit($0); voiceSession = nil }), axis: .vertical)
+                .lineLimit(3...12).disabled(speech.isBusy).accessibilityLabel("Task text")
             HStack {
                 Button { Task { await startRecording() } } label: { Label("Continue dictation", systemImage: "mic") }
                     .disabled(speech.isBusy || !speech.canRecord)
@@ -226,7 +228,7 @@ struct VoiceCaptureView: View {
     }
 
     private func interpret(source: String) async {
-        // Availability checks must not overwrite manual title/date edits for the same phrase.
+        // Interpretation proposes only parameters; the visible text always owns the title.
         guard proposal?.isCurrent(for: source) != true else { return }
         interpretationVersion += 1
         let version = interpretationVersion
@@ -256,17 +258,18 @@ struct VoiceCaptureView: View {
         catch { errorMessage = String(localized: "Could not interpret the phrase. Edit the text or enter the title and time manually.") }
     }
 
-    private func create() async {
-        guard proposal?.isCurrent(for: transcript) == true, !interpreting, !speech.isBusy else { return }
+    private func create(_ draft: ReminderDraft) async {
+        guard !speech.isBusy, !creation.isSaving, !store.isBusy else { return }
+        interpretationVersion += 1 // Invalidate interpretation queued before Create.
+        interpreting = false
         speech.cancel()
-        let draft = ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: proposal?.warnings ?? [], alarmEnabled: fields.alarmEnabled, recurrence: fields.recurrence)
         let sound = soundOverride ?? defaultSound
         let enabled = calendarEnabled
         let destination = calendarID.isEmpty ? nil : calendarID
         do {
             let start = ContinuousClock.now
-            let id = try await creation.confirm(draft: draft, now: .now, alarmEnabled: fields.alarmEnabled) { title, date in
-                if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination, alarmEnabled: fields.alarmEnabled, recurrence: fields.recurrence) {
+            let id = try await creation.confirm(draft: draft, now: .now) { title, date in
+                if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination, alarmEnabled: draft.alarmEnabled, recurrence: draft.recurrence, preserveTitleWhitespace: true) {
                     return store.lastCreatedID
                 }
                 return nil
