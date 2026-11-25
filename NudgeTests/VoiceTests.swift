@@ -540,6 +540,28 @@ final class OptionalVoiceTaskTests: XCTestCase {
 }
 
 final class VoiceTextBufferTests: XCTestCase {
+    func testDictateEditDictateEditDictateAndLateFieldCommit() {
+        var input = VoiceTextBuffer()
+        let first = input.begin()
+        input.update("Первая фраза", session: first)
+        input.finish(session: first)
+        input.edit("Первая фраза (это я написал вручную)")
+        let second = input.begin()
+        // Losing keyboard focus can send the same binding value after begin().
+        input.edit(input.text)
+        input.update("запоздалый первый результат", session: first)
+        input.update("вторая гипотеза", session: second)
+        input.update("вторая фраза", session: second)
+        input.finish(session: second)
+        input.edit(input.text + " и ещё вручную")
+        let third = input.begin()
+        input.edit(input.text)
+        input.update("старый callback", session: second)
+        input.update("третья фраза", session: third)
+        input.finish(session: third)
+        XCTAssertEqual(input.text, "Первая фраза (это я написал вручную) вторая фраза и ещё вручную третья фраза")
+    }
+
     func testContinuationPreservesManualEditsAndRejectsLateResults() {
         var input = VoiceTextBuffer()
         let first = input.begin()

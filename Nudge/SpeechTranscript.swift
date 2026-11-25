@@ -64,6 +64,7 @@ struct VoiceTextBuffer: Sendable {
         confirmed = text; hypothesis = ""; session = nil
     }
     mutating func edit(_ text: String) {
+        guard text != self.text else { return } // A duplicate TextField commit is not a manual edit.
         confirmed = text; hypothesis = ""; session = nil
     }
 }

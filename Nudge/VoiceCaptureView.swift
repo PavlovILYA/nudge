@@ -15,6 +15,7 @@ struct VoiceCaptureView: View {
     @State private var creation = VoiceCreation()
     @State private var input = VoiceTextBuffer()
     @State private var voiceSession: UUID?
+    @FocusState private var editingText: Bool
     @State private var confirmingClear = false
     @State private var showingSettings = false
     @State private var proposal: ReminderDraft?
@@ -64,9 +65,11 @@ struct VoiceCaptureView: View {
                 await interpret(source: source)
             }
             .onChange(of: speech.text) { _, value in
+                guard value == speech.text else { return }
                 if let voiceSession { input.update(value, session: voiceSession) }
             }
             .onChange(of: speech.isBusy) { _, busy in
+                guard busy == speech.isBusy else { return }
                 if busy {
                     interpretationVersion += 1
                     interpreting = false
@@ -169,8 +172,11 @@ struct VoiceCaptureView: View {
 
     private var requestEditor: some View {
         Section {
-            TextField("Task text", text: Binding(get: { input.text }, set: { input.edit($0); voiceSession = nil }), axis: .vertical)
-                .lineLimit(3...12).disabled(speech.isBusy).accessibilityLabel("Task text")
+            TextField("Task text", text: Binding(get: { input.text }, set: { value in
+                guard !speech.isBusy, value != input.text else { return }
+                input.edit(value); voiceSession = nil
+            }), axis: .vertical)
+                .lineLimit(3...12).focused($editingText).disabled(speech.isBusy).accessibilityLabel("Task text")
             HStack {
                 Button { Task { await startRecording() } } label: { Label("Continue dictation", systemImage: "mic") }
                     .disabled(speech.isBusy || !speech.canRecord)
@@ -216,6 +222,7 @@ struct VoiceCaptureView: View {
 
     private func startRecording() async {
         guard !speech.isBusy, !creation.isSaving, speech.canRecord else { return }
+        editingText = false
         voiceSession = input.begin()
         await speech.start()
         if !speech.isBusy { finishDictation() }
