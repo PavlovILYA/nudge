@@ -178,7 +178,8 @@ private final class CalendarClient {
         }
         guard event.calendar?.allowsContentModifications == true else { throw CalendarError.destination }
         let wasRecurring = existing?.hasRecurrenceRules == true
-        let changed = existing == nil || !request.matchesContent(title: event.title, start: event.startDate,
+        let zoneChanged = request.recurrence.map { event.timeZone?.identifier != $0.timeZoneID } ?? false
+        let changed = existing == nil || zoneChanged || !request.matchesContent(title: event.title, start: event.startDate,
             end: event.endDate, notes: event.notes, hasAlarms: event.hasAlarms, allDay: event.isAllDay) || !request.matchesRecurrence(event.recurrenceRules)
         if changed {
             event.title = request.title
