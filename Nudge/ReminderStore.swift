@@ -52,13 +52,15 @@ final class ReminderStore {
             return false
         }
         if reminder.alarmDisabled != true, let date = reminder.occurrenceDate {
+            let occurrence = reminder.occurrenceID
             do {
                 try await alarms.authorize()
                 let current = try incompleteReminder(id: reminder.id)
+                guard current.occurrenceID == occurrence else { throw SnoozeError.changed }
                 guard current.alarmDisabled != true else { throw SnoozeError.disabled }
                 try await replaceAlarm(current, date: date, cancelExisting: false)
             } catch {
-                if reminder.completedAt == nil && reminder.alarmDisabled != true {
+                if reminder.completedAt == nil && reminder.alarmDisabled != true && reminder.occurrenceID == occurrence {
                     reminder.alarmState = .failed
                     reminder.alarmError = friendlyMessage(error)
                     errorMessage = String(localized: "Task saved, but its alarm could not be enabled. Open the task to retry.")
@@ -154,7 +156,10 @@ final class ReminderStore {
             let occurrence = item.occurrenceID
             let moved = date != item.scheduledAt
             let repeatChanged = recurrence != item.recurrence
-            if let recurrence { try recurrence.validate() }
+            if let recurrence {
+                guard let date else { throw Reminder.ValidationError.pastDate }
+                _ = try recurrence.first(anchor: date)
+            }
             if let date, !date.timeIntervalSince1970.isFinite { throw Reminder.ValidationError.pastDate }
             let metadataChanged = title != item.title || sound != item.sound
             let dates = enabled ? try alarms.scheduledAlarms() : registeredDates
@@ -455,6 +460,7 @@ final class ReminderStore {
     func completeCurrent(id: UUID, expectedOccurrence: UUID?) async -> Bool {
         guard !isBusy else { return false }
         var advanced = false
+        var advancedOccurrence: UUID?
         do {
             let item = try reminder(id: id)
             guard item.recurrenceData != nil else {
@@ -476,6 +482,7 @@ final class ReminderStore {
             item.completedOccurrencesData = try JSONEncoder().encode(history)
             item.nextOccurrenceAt = next
             item.occurrenceID = UUID()
+            advancedOccurrence = item.occurrenceID
             item.pendingSnoozeAt = item.alarmEnabled ? next : nil
             item.nextAlarmAt = nil
             item.alarmNeedsUpdate = item.alarmEnabled || cancellationPending
@@ -485,6 +492,7 @@ final class ReminderStore {
             // Durable history/next token precede cancellation and registration.
             if item.alarmEnabled {
                 try await alarms.authorize()
+                guard item.completedAt == nil, item.alarmEnabled, item.occurrenceID == advancedOccurrence else { return true }
                 try await replaceAlarm(item, date: next)
             } else if cancellationPending || hadSignal { try cancelRegistration(item) }
             guard saveChanges() else { return true }
@@ -492,7 +500,7 @@ final class ReminderStore {
             return true
         } catch {
             log(error)
-            if advanced, let item = try? reminder(id: id), item.completedAt == nil, item.alarmEnabled {
+            if advanced, let item = try? reminder(id: id), item.completedAt == nil, item.alarmEnabled, item.occurrenceID == advancedOccurrence {
                 item.alarmNeedsUpdate = item.alarmEnabled
                 item.alarmState = .failed
                 item.alarmError = String(localized: "Occurrence completed. The next alarm needs a retry in Nudge.")

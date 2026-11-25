@@ -814,4 +814,32 @@ final class RecurringStoreTests: XCTestCase {
         XCTAssertEqual(endedRequests, 1)
     }
 
+    func testNewerOccurrenceWinsWhileOlderCompletionAwaitsAuthorization() async throws {
+        let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
+        var onAuthorize: (() async -> Void)?
+        var registrations: [UUID: Date] = [:]
+        var registeredToken: UUID?
+        let alarms = AlarmService(authorize: {
+            let action = onAuthorize
+            onAuthorize = nil
+            await action?()
+        }, schedule: { _, _, _, _ in XCTFail("Use token-aware registration") },
+            cancel: { registrations.removeValue(forKey: $0) }, scheduledAlarms: { registrations },
+            scheduleOccurrence: { id, _, date, _, token in registrations[id] = date; registeredToken = token })
+        let first = ReminderStore(context: context, alarms: alarms)
+        let second = ReminderStore(context: context, alarms: alarms)
+        _ = await first.create(title: "Race", date: .now.addingTimeInterval(600), recurrence: RecurrenceRule(unit: .days))
+        let task = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertEqual(registeredToken, task.occurrenceID)
+        onAuthorize = {
+            _ = await second.completeCurrent(id: task.id, expectedOccurrence: task.occurrenceID)
+        }
+        _ = await first.completeCurrent(id: task.id, expectedOccurrence: task.occurrenceID)
+        XCTAssertEqual(task.completedOccurrences.count, 2)
+        XCTAssertEqual(registeredToken, task.occurrenceID)
+        XCTAssertEqual(registrations[task.alarmID], task.nextOccurrenceAt)
+        XCTAssertEqual(task.alarmNeedsUpdate, false)
+        XCTAssertNil(task.alarmError)
+    }
+
 }

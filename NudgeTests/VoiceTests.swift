@@ -172,7 +172,8 @@ final class VoiceCreationTests: XCTestCase {
     }
 }
 
-// Frozen schema used by 0.4.0 and the earlier 0.5.0 builds, before optional deadlines.
+// Frozen task-first 0.5.0 schema immediately before recurrence additions.
+// Earlier required-deadline migrations are covered by Legacy040 and older fixtures.
 private enum Legacy050 {
     @Model final class Reminder {
         @Attribute(.unique) var id: UUID
@@ -450,6 +451,26 @@ final class OptionalVoiceTaskTests: XCTestCase {
         XCTAssertEqual(fields.title, "Undated")
         XCTAssertNil(fields.date)
         XCTAssertFalse(fields.alarmEnabled)
+    }
+
+    func testTypedRepeatDraftKeepsFullRequestAndManualRepeat() throws {
+        let now = Date(timeIntervalSince1970: 1_900_000_000)
+        let rule = RecurrenceRule(unit: .weeks, interval: 2, timeZoneID: "Europe/Moscow")
+        let draft = ReminderDraft(sourceText: "Полная исходная фраза", title: "Короткое название", date: now.addingTimeInterval(600), warnings: [], alarmEnabled: false, recurrence: rule)
+        XCTAssertNoThrow(try draft.validated(now: now))
+        XCTAssertEqual(draft.sourceText, "Полная исходная фраза")
+        var fields = VoiceTaskFields()
+        fields.apply(draft)
+        XCTAssertFalse(fields.alarmEnabled)
+        fields.editRecurrence(RecurrenceRule(unit: .days, interval: 3))
+        fields.apply(draft)
+        XCTAssertEqual(fields.recurrence?.unit, .days)
+        XCTAssertEqual(fields.recurrence?.interval, 3)
+        let roundTrip = try JSONDecoder().decode(RecurrenceRule.self, from: JSONEncoder().encode(rule))
+        XCTAssertEqual(roundTrip, rule)
+        var undated = draft
+        undated.date = nil
+        XCTAssertThrowsError(try undated.validated(now: now))
     }
 
     func testUndatedTaskAndDisplayedFutureDateNeedNoHiddenConfirmation() async throws {
