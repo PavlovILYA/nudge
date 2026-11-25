@@ -622,3 +622,42 @@ final class TaskFirstTests: XCTestCase {
     }
 
 }
+
+final class RecurrenceDateTests: XCTestCase {
+    private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
+    func testDaysWeeksWeekdaysAndHours() throws {
+        let anchor = date("2026-11-24T06:00:00Z") // Tuesday 09:00 Moscow.
+        for (rule, expected) in [
+            (RecurrenceRule(unit: .hours, interval: 3, timeZoneID: "Europe/Moscow"), "2026-11-24T09:00:00Z"),
+            (RecurrenceRule(unit: .days, timeZoneID: "Europe/Moscow"), "2026-11-25T06:00:00Z"),
+            (RecurrenceRule(unit: .days, interval: 3, timeZoneID: "Europe/Moscow"), "2026-11-27T06:00:00Z"),
+            (RecurrenceRule(unit: .weeks, interval: 2, timeZoneID: "Europe/Moscow"), "2026-12-08T06:00:00Z"),
+            (RecurrenceRule(unit: .weekdays, weekdays: [3], timeZoneID: "Europe/Moscow"), "2026-12-01T06:00:00Z"),
+            (RecurrenceRule(unit: .weekdays, weekdays: [3, 5], timeZoneID: "Europe/Moscow"), "2026-11-26T06:00:00Z")
+        ] { XCTAssertEqual(try rule.next(after: anchor, anchor: anchor), date(expected)) }
+    }
+    func testMonthEndsLeapYearAndInvalidRules() throws {
+        let monthly = RecurrenceRule(unit: .months, timeZoneID: "UTC")
+        let january = date("2028-01-31T09:00:00Z")
+        XCTAssertEqual(try monthly.next(after: january, anchor: january), date("2028-03-31T09:00:00Z"))
+        let feb29 = date("2028-02-29T09:00:00Z")
+        XCTAssertEqual(try monthly.next(after: feb29, anchor: feb29), date("2028-03-29T09:00:00Z"))
+        let fifth = RecurrenceRule(unit: .months, monthDay: 5, timeZoneID: "UTC")
+        XCTAssertEqual(try fifth.next(after: date("2026-12-05T09:00:00Z"), anchor: date("2026-11-05T09:00:00Z")), date("2027-01-05T09:00:00Z"))
+        XCTAssertThrowsError(try RecurrenceRule(unit: .days, interval: 0).next(after: january, anchor: january))
+        XCTAssertThrowsError(try RecurrenceRule(unit: .weekdays).validate())
+        XCTAssertThrowsError(try RecurrenceRule(unit: .months, monthDay: 32).validate())
+    }
+    func testDSTKeepsCalendarClockAndHoursAreElapsed() throws {
+        let daily = RecurrenceRule(unit: .days, timeZoneID: "America/New_York")
+        let before = date("2026-03-07T14:00:00Z")
+        XCTAssertEqual(try daily.next(after: before, anchor: before), date("2026-03-08T13:00:00Z"))
+        let fall = date("2026-10-31T13:00:00Z")
+        XCTAssertEqual(try daily.next(after: fall, anchor: fall), date("2026-11-01T14:00:00Z"))
+        let hours = RecurrenceRule(unit: .hours, interval: 24, timeZoneID: "America/New_York")
+        XCTAssertEqual(try hours.next(after: before, anchor: before).timeIntervalSince(before), 86400)
+        let missingClock = date("2026-03-07T07:30:00Z")
+        XCTAssertEqual(try daily.next(after: missingClock, anchor: missingClock), date("2026-03-08T07:00:00Z"))
+    }
+}
+

@@ -15,6 +15,13 @@ struct ReminderDraft: Sendable, Equatable {
     var title: String
     var date: Date?
     var warnings: [Warning]
+    var alarmEnabled: Bool
+    var recurrence: RecurrenceRule?
+
+    init(sourceText: String, title: String, date: Date?, warnings: [Warning], alarmEnabled: Bool? = nil, recurrence: RecurrenceRule? = nil) {
+        self.sourceText = sourceText; self.title = title; self.date = date; self.warnings = warnings
+        self.alarmEnabled = alarmEnabled ?? (date != nil); self.recurrence = recurrence
+    }
 
     enum Warning: String, Sendable {
         case missingDate, missingTime, ambiguous, invalidDate, pastDate, missingTitle, unsupportedRecurrence
@@ -25,12 +32,17 @@ struct ReminderDraft: Sendable, Equatable {
         catch { return false }
     }
     enum ValidationError: Error { case title, date }
-    func validated(now: Date, alarmEnabled: Bool = true) throws -> (title: String, date: Date?) {
+    func validated(now: Date, alarmEnabled: Bool? = nil) throws -> (title: String, date: Date?) {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw ValidationError.title }
-        if alarmEnabled {
+        if alarmEnabled ?? self.alarmEnabled {
             guard let date, date.timeIntervalSince1970.isFinite, date > now else { throw ValidationError.date }
         } else if let date, !date.timeIntervalSince1970.isFinite { throw ValidationError.date }
+        if let recurrence {
+            try recurrence.validate()
+            guard let date else { throw ValidationError.date }
+            _ = try recurrence.first(anchor: date)
+        }
         return (title, date)
     }
 }
