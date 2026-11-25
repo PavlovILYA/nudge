@@ -45,23 +45,33 @@ struct CompleteTaskIntent: LiveActivityIntent {
     static let isDiscoverable = false
 
     @Parameter(title: "Reminder ID") var reminderID: String
-    init() { reminderID = "" }
-    init(reminderID: String) { self.reminderID = reminderID }
+    @Parameter(title: "Occurrence ID") var occurrenceID: String
+    init() { reminderID = ""; occurrenceID = "" }
+    init(reminderID: String, occurrenceID: String = "") { self.reminderID = reminderID; self.occurrenceID = occurrenceID }
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        try complete(in: ReminderPersistence.container().mainContext)
+        try await complete(in: ReminderPersistence.container().mainContext)
         return .result()
     }
 
     @MainActor
-    func complete(in context: ModelContext, alarms: AlarmService = .live) throws {
+    func complete(in context: ModelContext, alarms: AlarmService = .live) async throws {
         guard let id = UUID(uuidString: reminderID) else { throw IntentError.invalidID }
-        try ReminderStore(context: context, alarms: alarms).complete(id: id)
+        let store = ReminderStore(context: context, alarms: alarms)
+        let descriptor = FetchDescriptor<Reminder>(predicate: #Predicate { $0.id == id })
+        guard try context.fetch(descriptor).first != nil else { return }
+        guard occurrenceID.isEmpty || UUID(uuidString: occurrenceID) != nil else { throw IntentError.invalidID }
+        guard await store.completeCurrent(id: id, expectedOccurrence: UUID(uuidString: occurrenceID)) else { throw IntentError.failed }
     }
 
     private enum IntentError: LocalizedError {
-        case invalidID
-        var errorDescription: String? { String(localized: "The reminder identifier is invalid.") }
+        case invalidID, failed
+        var errorDescription: String? {
+            switch self {
+            case .invalidID: String(localized: "The reminder identifier is invalid.")
+            case .failed: String(localized: "Task completion could not finish. Open Nudge to check and retry.")
+            }
+        }
     }
 }

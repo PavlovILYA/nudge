@@ -40,7 +40,7 @@ struct ContentView: View {
                             .contextMenu {
                                 Button("Edit task", systemImage: "pencil") { present(.edit(reminder.id)) }
                                 if reminder.completedAt == nil {
-                                    Button("Done", systemImage: "checkmark.circle") { store.complete(reminder) }
+                                    Button("Done", systemImage: "checkmark.circle") { completeTask(reminder) }
                                     Button("Change time", systemImage: "calendar") { present(.edit(reminder.id)) }
                                     if store.isAlerting(reminder) {
                                         Button("Actions", systemImage: "ellipsis.circle") { present(.snooze(reminder.id)) }
@@ -106,7 +106,7 @@ struct ContentView: View {
             .onChange(of: launchRequest.url) { _, _ in consumeLaunchRequest() }
             .onChange(of: snoozeRequest.reminderID) { _, _ in consumeAlarmRequest() }
             .onChange(of: store.isBusy) { _, busy in if !busy { store.refresh(); consumePending() } }
-            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { store.refresh(); store.refreshCalendar(); await store.upgradeAlarmActions(); store.refresh() } } }
+            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { store.refresh(); store.refreshCalendar(); await store.upgradeAlarmActions(); await store.recoverRecurringAlarms(); store.refresh() } } }
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged).receive(on: RunLoop.main)) { _ in
                 store.refreshCalendar()
             }
@@ -114,6 +114,7 @@ struct ContentView: View {
                 store.refresh()
                 store.refreshCalendar()
                 await store.upgradeAlarmActions()
+                await store.recoverRecurringAlarms()
                 store.refresh()
                 consumeAlarmRequest()
                 consumeLaunchRequest()
@@ -127,7 +128,7 @@ struct ContentView: View {
 
     private func taskRow(_ reminder: Reminder, at now: Date) -> some View {
         HStack(alignment: .center, spacing: 8) {
-            Button { store.complete(reminder) } label: {
+            Button { completeTask(reminder) } label: {
                 Image(systemName: reminder.completedAt == nil ? "circle" : "checkmark.circle.fill")
                     .font(.title2).frame(width: 44, height: 44)
             }
@@ -136,13 +137,14 @@ struct ContentView: View {
             Button { present(.edit(reminder.id)) } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(reminder.title).font(.headline)
-                    if let date = reminder.scheduledAt {
+                    if let rule = reminder.recurrence { Text(rule.title).font(.caption).foregroundStyle(.secondary) }
+                    if let date = reminder.occurrenceDate {
                         Text(date, format: .dateTime.month().day().hour().minute()).font(.subheadline).foregroundStyle(.secondary)
                     }
                     if reminder.state(at: now) == .overdue {
                         Text("Overdue").font(.caption).foregroundStyle(.orange)
                     }
-                    if let date = store.activeAlarmDate(for: reminder, at: now), date != reminder.scheduledAt {
+                    if let date = store.activeAlarmDate(for: reminder, at: now), date != reminder.occurrenceDate {
                         Text("Alarm: \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.tint)
                     }
                     if reminder.alarmError != nil || reminder.alarmState == .failed { Text("Alarm needs attention").font(.caption).foregroundStyle(.orange) }
@@ -161,13 +163,18 @@ struct ContentView: View {
         }
     }
 
+    private func completeTask(_ reminder: Reminder) {
+        let token = reminder.occurrenceID
+        Task { _ = await store.completeCurrent(id: reminder.id, expectedOccurrence: token) }
+    }
+
     private func hasSignal(_ reminder: Reminder) -> Bool {
         store.activeAlarmDate(for: reminder) != nil || store.isAlerting(reminder)
     }
 
     private func toggleAlarm(_ reminder: Reminder) {
         if hasSignal(reminder) { store.disableAlarm(reminder) }
-        else if let date = reminder.scheduledAt, date > .now {
+        else if let date = reminder.occurrenceDate, date > .now {
             Task { _ = await store.enableAlarm(id: reminder.id) }
         } else { present(.enableAlarm(reminder.id)) }
     }

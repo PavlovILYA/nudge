@@ -13,7 +13,13 @@ final class Reminder {
     var soundModeID: String?
     var alarmDisabled: Bool?
     var alarmNeedsUpdate: Bool?
+    // True only after cancellation succeeded and the current write was journaled.
+    var alarmWriteStarted: Bool?
     var alarmActionsVersion: Int?
+    var recurrenceData: Data?
+    var nextOccurrenceAt: Date?
+    var occurrenceID: UUID?
+    var completedOccurrencesData: Data?
     var calendarEnabled: Bool?
     var calendarIdentifier: String?
     var calendarEventID: String?
@@ -48,11 +54,34 @@ final class Reminder {
         self.soundModeID = sound.rawValue
     }
 
+    var recurrence: RecurrenceRule? {
+        guard let recurrenceData else { return nil }
+        return try? JSONDecoder().decode(RecurrenceRule.self, from: recurrenceData)
+    }
+    var completedOccurrences: [CompletedOccurrence] {
+        guard let completedOccurrencesData else { return [] }
+        return (try? JSONDecoder().decode([CompletedOccurrence].self, from: completedOccurrencesData)) ?? []
+    }
+    var occurrenceDate: Date? { recurrence != nil ? (nextOccurrenceAt ?? scheduledAt) : scheduledAt }
+    func setRecurrence(_ rule: RecurrenceRule?, reset: Bool) throws {
+        if let rule {
+            try rule.validate()
+            guard let anchor = scheduledAt else { throw ValidationError.pastDate }
+            recurrenceData = try JSONEncoder().encode(rule)
+            if reset || occurrenceID == nil {
+                nextOccurrenceAt = try rule.first(anchor: anchor)
+                occurrenceID = UUID()
+            }
+        } else {
+            recurrenceData = nil; nextOccurrenceAt = nil; occurrenceID = nil
+        }
+    }
+
     var sound: AlarmSound { AlarmSound(rawValue: soundModeID ?? "") ?? .systemDefault }
 
     var alarmEnabled: Bool { completedAt == nil && alarmDisabled != true }
 
-    var effectiveAlarmAt: Date? { nextAlarmAt ?? scheduledAt }
+    var effectiveAlarmAt: Date? { nextAlarmAt ?? occurrenceDate }
 
     static func validateSnoozeDate(_ date: Date, now: Date = .now) throws {
         guard date.timeIntervalSince1970.isFinite, date > now else { throw ValidationError.pastDate }
@@ -60,7 +89,7 @@ final class Reminder {
 
     func state(at now: Date) -> TaskState {
         if completedAt != nil { return .completed }
-        return scheduledAt.map { $0 > now ? .pending : .overdue } ?? .pending
+        return occurrenceDate.map { $0 > now ? .pending : .overdue } ?? .pending
     }
 
     enum TaskState { case pending, overdue, completed }

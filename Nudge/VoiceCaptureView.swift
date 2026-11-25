@@ -124,8 +124,9 @@ struct VoiceCaptureView: View {
             Section {
                 TextField("Task title", text: Binding(get: { fields.title }, set: { fields.editTitle($0) }), axis: .vertical).font(.headline)
                 TaskScheduleFields(date: Binding(get: { fields.date }, set: { fields.editDate($0) }), alarmEnabled: Binding(get: { fields.alarmEnabled }, set: { fields.editAlarm($0) }))
+                RecurrencePicker(rule: Binding(get: { fields.recurrence }, set: { fields.editRecurrence($0) }), date: Binding(get: { fields.date }, set: { fields.editDate($0) }))
                 if proposal.warnings.contains(.unsupportedRecurrence) {
-                    Text("Repeating commands are not supported. Only a one-time reminder can be created here.").font(.footnote).foregroundStyle(.orange)
+                    Text("Choose repetition manually; the current parser does not infer repeat rules.").font(.footnote).foregroundStyle(.orange)
                 } else if proposal.warnings.contains(.ambiguous) {
                     Text("Check the title and time.").font(.footnote).foregroundStyle(.orange)
                 }
@@ -139,7 +140,7 @@ struct VoiceCaptureView: View {
                     }.frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-                .disabled(!ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: []).canCreate(now: .now, alarmEnabled: fields.alarmEnabled) || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
+                .disabled(!ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: [], alarmEnabled: fields.alarmEnabled, recurrence: fields.recurrence).canCreate(now: .now, alarmEnabled: fields.alarmEnabled) || interpreting || creation.isSaving || store.isBusy || !proposal.isCurrent(for: transcript))
 
             }
             Section {
@@ -258,14 +259,14 @@ struct VoiceCaptureView: View {
     private func create() async {
         guard proposal?.isCurrent(for: transcript) == true, !interpreting, !speech.isBusy else { return }
         speech.cancel()
-        let draft = ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: proposal?.warnings ?? [])
+        let draft = ReminderDraft(sourceText: transcript, title: fields.title, date: fields.date, warnings: proposal?.warnings ?? [], alarmEnabled: fields.alarmEnabled, recurrence: fields.recurrence)
         let sound = soundOverride ?? defaultSound
         let enabled = calendarEnabled
         let destination = calendarID.isEmpty ? nil : calendarID
         do {
             let start = ContinuousClock.now
             let id = try await creation.confirm(draft: draft, now: .now, alarmEnabled: fields.alarmEnabled) { title, date in
-                if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination, alarmEnabled: fields.alarmEnabled) {
+                if await store.create(title: title, date: date, sound: sound, calendarEnabled: enabled, calendarID: destination, alarmEnabled: fields.alarmEnabled, recurrence: fields.recurrence) {
                     return store.lastCreatedID
                 }
                 return nil

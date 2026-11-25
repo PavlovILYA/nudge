@@ -21,10 +21,37 @@ struct CalendarRequest {
     let externalID: String?
     let previousDate: Date?
     let allowCreate: Bool
+    var recurrence: RecurrenceRule? = nil
+    var seriesCompletedAt: Date? = nil
 
     var endDate: Date { date.addingTimeInterval(900) }
     var url: URL { ReminderLink.url(for: id) }
-    var notes: String { String(localized: "Managed by Nudge. Edit this task in Nudge.") + "\n" + Self.marker(for: id) }
+    var notes: String {
+        var text = String(localized: "Managed by Nudge. Edit this task in Nudge.") + "\n" + Self.marker(for: id)
+        if recurrence?.unit == .hours { text += "\n" + String(localized: "Hourly recurrence is managed by Nudge. Calendar shows the original event only.") }
+        return text
+    }
+    var nativeRecurrence: EKRecurrenceRule? {
+        guard let recurrence, recurrence.unit != .hours else { return nil }
+        let frequency: EKRecurrenceFrequency = recurrence.unit == .days ? .daily : recurrence.unit == .months ? .monthly : .weekly
+        let days = recurrence.unit == .weekdays ? recurrence.weekdays.sorted().compactMap { EKWeekday(rawValue: $0).map { EKRecurrenceDayOfWeek($0) } } : nil
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: recurrence.timeZoneID) ?? .current
+        let monthDays: [NSNumber]? = recurrence.unit == .months ? [NSNumber(value: recurrence.monthDay ?? calendar.component(.day, from: date))] : nil
+        let end = seriesCompletedAt.map { EKRecurrenceEnd(end: max($0, date)) }
+        return EKRecurrenceRule(recurrenceWith: frequency, interval: recurrence.interval, daysOfTheWeek: days,
+            daysOfTheMonth: monthDays, monthsOfTheYear: nil, weeksOfTheYear: nil, daysOfTheYear: nil, setPositions: nil, end: end)
+    }
+    func matchesRecurrence(_ rules: [EKRecurrenceRule]?) -> Bool {
+        guard let expected = nativeRecurrence else { return rules?.isEmpty != false }
+        guard let actual = rules?.first, rules?.count == 1 else { return false }
+        let endMatches: Bool
+        if let a = actual.recurrenceEnd?.endDate, let b = expected.recurrenceEnd?.endDate { endMatches = abs(a.timeIntervalSince(b)) < 1 }
+        else { endMatches = actual.recurrenceEnd == nil && expected.recurrenceEnd == nil }
+        return actual.frequency == expected.frequency && actual.interval == expected.interval && endMatches
+            && actual.daysOfTheWeek?.map { $0.dayOfTheWeek.rawValue }.sorted() == expected.daysOfTheWeek?.map { $0.dayOfTheWeek.rawValue }.sorted()
+            && actual.daysOfTheMonth?.map(\.intValue) == expected.daysOfTheMonth?.map(\.intValue)
+    }
     func matchesContent(title: String?, start: Date?, end: Date?, notes: String?, hasAlarms: Bool, allDay: Bool) -> Bool {
         guard let start, let end else { return false }
         // Calendar providers may drop subsecond precision or canonicalize line endings.
@@ -113,8 +140,11 @@ private final class CalendarClient {
         var matches: [String: EKEvent] = [:]
         func consider(_ event: EKEvent) throws {
             guard CalendarRequest.owns(url: event.url, notes: event.notes, id: request.id) else { return }
-            guard !(event.hasRecurrenceRules) else { throw CalendarError.ambiguous }
-            matches[event.eventIdentifier ?? event.calendarItemIdentifier] = event
+            if event.hasRecurrenceRules {
+                // Resolve the owned series anchor, never arbitrarily edit a later occurrence.
+                guard [request.date, request.previousDate].compactMap({ $0 }).contains(where: { abs(event.startDate.timeIntervalSince($0)) < 1 }) else { return }
+            }
+            matches[event.calendarItemIdentifier] = event
         }
         if let id = request.eventID, let event = store.event(withIdentifier: id) {
             // An identifier alone never grants ownership of an event.
@@ -147,8 +177,9 @@ private final class CalendarClient {
             event.calendar = calendar
         }
         guard event.calendar?.allowsContentModifications == true else { throw CalendarError.destination }
+        let wasRecurring = existing?.hasRecurrenceRules == true
         let changed = existing == nil || !request.matchesContent(title: event.title, start: event.startDate,
-            end: event.endDate, notes: event.notes, hasAlarms: event.hasAlarms, allDay: event.isAllDay)
+            end: event.endDate, notes: event.notes, hasAlarms: event.hasAlarms, allDay: event.isAllDay) || !request.matchesRecurrence(event.recurrenceRules)
         if changed {
             event.title = request.title
             event.startDate = request.date
@@ -156,8 +187,10 @@ private final class CalendarClient {
             event.isAllDay = false
             event.url = request.url
             event.notes = request.notes
+            event.timeZone = request.recurrence.flatMap { TimeZone(identifier: $0.timeZoneID) }
+            event.recurrenceRules = request.nativeRecurrence.map { [$0] }
             event.alarms = [] // Calendar must not create a second alert alongside AlarmKit.
-            do { try store.save(event, span: .thisEvent, commit: true) }
+            do { try store.save(event, span: event.hasRecurrenceRules || wasRecurring ? .futureEvents : .thisEvent, commit: true) }
             catch { store.reset(); throw error }
         }
         guard let id = event.eventIdentifier else { throw CalendarError.missing }
@@ -170,7 +203,7 @@ private final class CalendarClient {
             throw CalendarError.missing
         }
         guard event.calendar?.allowsContentModifications == true else { throw CalendarError.destination }
-        do { try store.remove(event, span: .thisEvent, commit: true) }
+        do { try store.remove(event, span: event.hasRecurrenceRules ? .futureEvents : .thisEvent, commit: true) }
         catch { store.reset(); throw error }
     }
 }

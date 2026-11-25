@@ -10,6 +10,7 @@ struct EditReminderView: View {
     @State private var title: String
     @State private var date: Date?
     @State private var alarmEnabled: Bool
+    @State private var recurrence: RecurrenceRule?
     @State private var sound: AlarmSound
     @State private var calendarEnabled: Bool
 
@@ -18,6 +19,7 @@ struct EditReminderView: View {
         self.store = store
         self.onSnooze = onSnooze
         _title = State(initialValue: reminder.title)
+        _recurrence = State(initialValue: reminder.recurrence)
         _date = State(initialValue: enableAlarmOnOpen && (reminder.scheduledAt.map { $0 <= .now } ?? true) ? Date.now.addingTimeInterval(3600) : reminder.scheduledAt)
         _alarmEnabled = State(initialValue: reminder.completedAt == nil && (enableAlarmOnOpen || (reminder.alarmEnabled && (store.activeAlarmDate(for: reminder) != nil || store.isAlerting(reminder) || reminder.alarmNeedsUpdate == true))))
         _sound = State(initialValue: reminder.sound)
@@ -25,11 +27,11 @@ struct EditReminderView: View {
     }
 
     private var canSave: Bool {
-        let draft = ReminderDraft(sourceText: "", title: title, date: date, warnings: [])
+        let draft = ReminderDraft(sourceText: "", title: title, date: date, warnings: [], alarmEnabled: alarmEnabled, recurrence: recurrence)
         if draft.canCreate(now: .now, alarmEnabled: alarmEnabled) { return true }
         // Metadata edits preserve a future Snooze without moving an overdue deadline.
         return !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && date != nil
-            && date == reminder.scheduledAt && reminder.alarmDisabled != true && reminder.alarmNeedsUpdate != true
+            && date == reminder.scheduledAt && recurrence == reminder.recurrence && reminder.alarmDisabled != true && reminder.alarmNeedsUpdate != true
     }
 
     var body: some View {
@@ -38,6 +40,10 @@ struct EditReminderView: View {
                 Section {
                     TextField("Task title", text: $title, axis: .vertical)
                     TaskScheduleFields(date: $date, alarmEnabled: $alarmEnabled, canEnableAlarm: reminder.completedAt == nil)
+                    RecurrencePicker(rule: $recurrence, date: $date)
+                    if reminder.recurrence != nil, let next = reminder.nextOccurrenceAt {
+                        LabeledContent("Next occurrence") { Text(next, format: .dateTime.month().day().hour().minute()) }
+                    }
                     Picker("Reminder sound", selection: $sound) {
                         ForEach(AlarmSound.allCases) { Text($0.title).tag($0) }
                     }
@@ -50,8 +56,11 @@ struct EditReminderView: View {
                 if reminder.completedAt == nil {
                     Section {
                         Button("Done", systemImage: "checkmark.circle") {
-                            store.complete(reminder)
-                            if reminder.completedAt != nil { dismiss() }
+                            let token = reminder.occurrenceID
+                            Task { if await store.completeCurrent(id: reminder.id, expectedOccurrence: token) { dismiss() } }
+                        }
+                        if reminder.recurrence != nil {
+                            Button("Finish series", role: .destructive) { if store.finishSeries(reminder) { dismiss() } }
                         }
                         if store.isAlerting(reminder) { Button("Actions", systemImage: "ellipsis.circle", action: onSnooze) }
                         if reminder.alarmDisabled != true {
@@ -65,6 +74,13 @@ struct EditReminderView: View {
                     }
                 } else {
                     Label("Completed", systemImage: "checkmark.circle")
+                }
+                if !reminder.completedOccurrences.isEmpty {
+                    DisclosureGroup("Completed occurrences") {
+                        ForEach(reminder.completedOccurrences.reversed(), id: \.id) { item in
+                            Text(item.completedAt, format: .dateTime.month().day().year().hour().minute())
+                        }
+                    }
                 }
                 Section {
                     Button("Delete task", role: .destructive) { confirmingDelete = true }
@@ -80,7 +96,7 @@ struct EditReminderView: View {
                     Button("Save") {
                         Task {
                             if await store.edit(id: reminder.id, title: title, date: date, sound: sound,
-                                calendarEnabled: calendarEnabled, calendarID: destinationID.isEmpty ? nil : destinationID, alarmEnabled: alarmEnabled) { dismiss() }
+                                calendarEnabled: calendarEnabled, calendarID: destinationID.isEmpty ? nil : destinationID, alarmEnabled: alarmEnabled, recurrence: recurrence) { dismiss() }
                         }
                     }.disabled(!canSave)
                 }

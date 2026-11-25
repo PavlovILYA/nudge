@@ -11,12 +11,14 @@ struct CreateReminderView: View {
     @State private var title = ""
     @State private var date: Date?
     @State private var alarmEnabled = false
+    @State private var recurrence: RecurrenceRule?
 
     var body: some View {
         NavigationStack {
             Form {
                 TextField("Task title", text: $title, axis: .vertical)
                 TaskScheduleFields(date: $date, alarmEnabled: $alarmEnabled)
+                RecurrencePicker(rule: $recurrence, date: $date)
                 DisclosureGroup("Sound and Calendar") {
                     Picker("Reminder sound", selection: $soundOverride) {
                         Text("Use default (\(defaultSound.title))").tag(AlarmSound?.none)
@@ -43,10 +45,10 @@ struct CreateReminderView: View {
                     Button("Create") {
                         Task {
                             store.errorMessage = nil
-                            if await store.create(title: title, date: date, sound: soundOverride ?? defaultSound, calendarEnabled: calendarEnabled, calendarID: calendarID.isEmpty ? nil : calendarID, alarmEnabled: alarmEnabled) { dismiss() }
+                            if await store.create(title: title, date: date, sound: soundOverride ?? defaultSound, calendarEnabled: calendarEnabled, calendarID: calendarID.isEmpty ? nil : calendarID, alarmEnabled: alarmEnabled, recurrence: recurrence) { dismiss() }
                         }
                     }
-                    .disabled(store.isBusy || !ReminderDraft(sourceText: "", title: title, date: date, warnings: []).canCreate(now: .now, alarmEnabled: alarmEnabled))
+                    .disabled(store.isBusy || !ReminderDraft(sourceText: "", title: title, date: date, warnings: [], recurrence: recurrence).canCreate(now: .now, alarmEnabled: alarmEnabled))
                 }
             }
             .disabled(store.isBusy)

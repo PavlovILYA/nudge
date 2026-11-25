@@ -322,7 +322,7 @@ final class ReminderTests: XCTestCase {
     }
 
     func testSaveFailuresBeforeAndAfterSchedulingAreRecoverable() async throws {
-        for failingSave in [1, 2] {
+        for failingSave in [1, 3] {
             let context = try memoryContext()
             let original = Date.now.addingTimeInterval(600)
             let reminder = try Reminder(title: "Task", scheduledAt: original)

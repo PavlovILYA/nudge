@@ -139,6 +139,11 @@ final class VoiceCreationTests: XCTestCase {
         XCTAssertEqual(saved.alarmDisabled, false)
         XCTAssertEqual(saved.alarmNeedsUpdate, true)
         XCTAssertNil(saved.alarmActionsVersion)
+        XCTAssertNil(saved.recurrenceData)
+        XCTAssertNil(saved.nextOccurrenceAt)
+        XCTAssertNil(saved.occurrenceID)
+        XCTAssertNil(saved.completedOccurrencesData)
+        XCTAssertNil(saved.alarmWriteStarted)
         XCTAssertEqual(saved.calendarEnabled, true)
         XCTAssertEqual(saved.calendarIdentifier, "calendar")
         XCTAssertEqual(saved.calendarEventID, "event")
@@ -172,13 +177,14 @@ private enum Legacy050 {
     @Model final class Reminder {
         @Attribute(.unique) var id: UUID
         var title: String
-        var scheduledAt: Date
+        var scheduledAt: Date?
         var createdAt: Date
         var nextAlarmAt: Date?
         var pendingSnoozeAt: Date?
         var soundModeID: String?
         var alarmDisabled: Bool?
         var alarmNeedsUpdate: Bool?
+        var alarmActionsVersion: Int?
         var calendarEnabled: Bool?
         var calendarIdentifier: String?
         var calendarEventID: String?
