@@ -19,6 +19,7 @@ struct SoundSettingsView: View {
                 }
                 SoundDetails(sound: defaultSound, alwaysWarn: true)
                 CalendarSettingsSection()
+                DictationResourcesSection()
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -64,5 +65,34 @@ struct SoundDetails: View {
             Button("Preview", systemImage: "play.circle") { preview.play(sound) }.frame(minHeight: 44)
         }
         if let error = preview.errorMessage { Text(error).foregroundStyle(.red) }
+    }
+}
+
+
+struct DictationResourcesSection: View {
+    @State private var speech = SpeechTranscriptionService()
+    private var working: Bool { speech.resourceStatus == .checking || speech.resourceStatus == .installing }
+    private var status: String {
+        switch speech.resourceStatus {
+        case .checking: String(localized: "Checking Apple dictation…")
+        case .available: String(localized: "Russian dictation is available offline")
+        case .notInstalled: String(localized: "Apple dictation resources are not installed")
+        case .installing: String(localized: "Installing Apple dictation resources…")
+        case .unavailable: String(localized: "Russian dictation is unavailable on this device")
+        case .failed: String(localized: "Dictation resource installation failed")
+        }
+    }
+    var body: some View {
+        Section("Recognition settings") {
+            Text(status).font(.subheadline)
+            if working { ProgressView() }
+            if let error = speech.errorMessage { Text(error).font(.footnote).foregroundStyle(.secondary) }
+            if speech.canInstall {
+                Button("Install system language resources") { Task { await speech.installResources() } }.disabled(working)
+            }
+            Button("Check availability again") { Task { await speech.prepare() } }.disabled(working)
+            Text("These are Apple's speech recognition resources, not an LLM. Audio stays on this device.").font(.footnote).foregroundStyle(.secondary)
+        }
+        .task { await speech.prepare() }
     }
 }

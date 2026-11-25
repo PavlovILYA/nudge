@@ -30,6 +30,10 @@ struct ContentView: View {
         NavigationStack {
             TimelineView(.periodic(from: .now, by: 30)) { timeline in
                 List {
+                    Picker("Tasks", selection: $showCompleted) {
+                        Text("Active").tag(false)
+                        Text("Completed").tag(true)
+                    }.pickerStyle(.segmented)
                     if visible.isEmpty { Text("Nothing here yet").foregroundStyle(.secondary) }
                     ForEach(visible) { reminder in
                         taskRow(reminder, at: timeline.date)
@@ -57,7 +61,6 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        Toggle("Completed tasks", isOn: $showCompleted)
                         Button("Settings", systemImage: "gearshape") { present(.settings) }
                     } label: { Label("Options", systemImage: "ellipsis.circle") }
                 }
