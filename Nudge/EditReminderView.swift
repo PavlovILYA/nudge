@@ -56,8 +56,7 @@ struct EditReminderView: View {
                 if reminder.completedAt == nil {
                     Section {
                         Button("Done", systemImage: "checkmark.circle") {
-                            let token = reminder.occurrenceID
-                            Task { if await store.completeCurrent(id: reminder.id, expectedOccurrence: token) { dismiss() } }
+                            if store.finishSeries(reminder) { dismiss() }
                         }
                         if reminder.recurrence != nil {
                             Button("Finish series", role: .destructive) { if store.finishSeries(reminder) { dismiss() } }

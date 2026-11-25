@@ -693,6 +693,44 @@ final class RecurringStoreTests: XCTestCase {
         XCTAssertNotNil(task.completedAt)
         XCTAssertNil(task.nextOccurrenceAt)
     }
+    func testFullTaskCompletionKeepsHistoryAndCannotRestartAfterStopOrCancellationFailure() async throws {
+        let container = try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        var registrations: [UUID: Date] = [:]
+        var failCancel = false
+        var writes = 0
+        let alarms = AlarmService(schedule: { id, _, date, _ in writes += 1; registrations[id] = date },
+            cancel: { id in if failCancel { throw CancellationError() }; registrations.removeValue(forKey: id) }, scheduledAlarms: { registrations })
+        let store = ReminderStore(context: context, alarms: alarms)
+        _ = await store.create(title: "Every 2 hours", date: .now.addingTimeInterval(600), recurrence: RecurrenceRule(unit: .hours, interval: 2))
+        let task = try XCTUnwrap(context.fetch(FetchDescriptor<Reminder>()).first)
+        let firstStop = CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(task.occurrenceID).uuidString)
+        try await firstStop.complete(in: context, alarms: alarms)
+        XCTAssertNil(task.completedAt)
+        XCTAssertEqual(task.completedOccurrences.count, 1)
+        let nextStop = CompleteTaskIntent(reminderID: task.id.uuidString, occurrenceID: try XCTUnwrap(task.occurrenceID).uuidString)
+        failCancel = true
+        XCTAssertFalse(store.finishSeries(task))
+        XCTAssertNotNil(task.completedAt)
+        XCTAssertNil(task.nextOccurrenceAt)
+        XCTAssertEqual(task.alarmNeedsUpdate, true)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertEqual(task.completedOccurrences.count, 1)
+        let reopened = ModelContext(container)
+        let saved = try XCTUnwrap(reopened.fetch(FetchDescriptor<Reminder>()).first)
+        XCTAssertNotNil(saved.completedAt)
+        failCancel = false
+        let recovered = ReminderStore(context: reopened, alarms: alarms)
+        recovered.refresh()
+        XCTAssertTrue(registrations.isEmpty)
+        XCTAssertTrue(recovered.finishSeries(saved))
+        try await firstStop.complete(in: reopened, alarms: alarms)
+        try await nextStop.complete(in: reopened, alarms: alarms)
+        XCTAssertEqual(saved.completedOccurrences.count, 1)
+        XCTAssertNil(saved.nextOccurrenceAt)
+        XCTAssertEqual(writes, 2)
+    }
+
     func testRecurringAlarmStopRegistersNextAndSnoozePreservesRuleAndCalendarAnchor() async throws {
         let context = ModelContext(try ModelContainer(for: Reminder.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true)))
         var registrations: [UUID: Date] = [:]

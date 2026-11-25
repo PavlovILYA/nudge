@@ -162,8 +162,7 @@ struct ContentView: View {
     }
 
     private func completeTask(_ reminder: Reminder) {
-        let token = reminder.occurrenceID
-        Task { _ = await store.completeCurrent(id: reminder.id, expectedOccurrence: token) }
+        store.finishSeries(reminder)
     }
 
     private func hasSignal(_ reminder: Reminder) -> Bool {
