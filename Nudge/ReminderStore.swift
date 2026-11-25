@@ -216,6 +216,9 @@ final class ReminderStore {
             return syncCalendar(current)
         } catch {
             if let item = savedReminder, item.completedAt == nil, item.occurrenceID == savedOccurrence {
+                // Date alone cannot confirm title/sound/intents after an edit error.
+                // Keep metadata updates dirty until a successful explicit retry.
+                item.alarmWriteStarted = false
                 item.alarmState = .failed
                 item.alarmError = friendlyMessage(error)
                 _ = saveChanges()
